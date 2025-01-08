@@ -10,6 +10,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="EmbedIO" Version="3.5.2" />
     <PackageReference Include="NINA.Plugin" Version="3.0.0.2017-beta" />
   </ItemGroup>
   <PropertyGroup />
