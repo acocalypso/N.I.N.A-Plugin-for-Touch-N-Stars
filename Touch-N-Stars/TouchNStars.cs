@@ -1,4 +1,6 @@
-﻿using NINA.Core.Utility;
+﻿using ASCOM.Com;
+using NINA.Core.Utility;
+using NINA.Image.Interfaces;
 using NINA.Plugin;
 using NINA.Plugin.Interfaces;
 using NINA.Profile.Interfaces;
@@ -12,12 +14,11 @@ using Settings = TouchNStars.Properties.Settings;
 
 namespace TouchNStars {
 
-    public class Mediators {
-        public readonly IDeepSkyObjectSearchVM DeepSkyObjectSearchVM;
-
-        public Mediators(IDeepSkyObjectSearchVM DeepSkyObjectSearchVM) {
-            this.DeepSkyObjectSearchVM = DeepSkyObjectSearchVM;
-        }
+    public class Mediators(IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IImageDataFactory ImageDataFactory, IFramingAssistantVM framingAssistantVM, IProfileService profile) {
+        public readonly IDeepSkyObjectSearchVM DeepSkyObjectSearchVM = DeepSkyObjectSearchVM;
+        public readonly IImageDataFactory ImageDataFactory = ImageDataFactory;
+        public readonly IFramingAssistantVM FramingAssistantVM = framingAssistantVM;
+        public readonly IProfileService Profile = profile;
     }
 
     [Export(typeof(IPluginManifest))]
@@ -28,13 +29,13 @@ namespace TouchNStars {
 
 
         [ImportingConstructor]
-        public TouchNStars(IProfileService profileService, IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IFramingAssistantVM framing) {
+        public TouchNStars(IProfileService profileService, IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IImageDataFactory imageDataFactory, IFramingAssistantVM framingAssistantVM) {
             if (Settings.Default.UpdateSettings) {
                 Settings.Default.Upgrade();
                 Settings.Default.UpdateSettings = false;
                 CoreUtil.SaveSettings(Settings.Default);
             }
-            Mediators = new Mediators(DeepSkyObjectSearchVM);
+            Mediators = new Mediators(DeepSkyObjectSearchVM, imageDataFactory, framingAssistantVM, profileService);
             server = new TouchNStarsServer();
             server.Start();
         }

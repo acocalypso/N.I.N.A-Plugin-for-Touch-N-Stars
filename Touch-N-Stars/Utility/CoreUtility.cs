@@ -1,14 +1,14 @@
 using System;
 using System.IO;
 
-namespace TouchNStars.Helper;
+namespace TouchNStars.Utility;
 
 public static class CoreUtility {
     public const string BASE_API_URL = "http://localhost:1888/v2/api";
 
     public static readonly string CachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "FramingAssistantCache");
     public static readonly string LogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "Logs");
-    public static readonly string XMLFilePath = Path.Combine(CachePath, "CacheInfo.xml");
+    public static readonly string Hips2FitsUrl = "http://alaskybis.u-strasbg.fr/hips-image-services/hips2fits";
 
     public static double HmsToDegrees(string hms) {
         string[] hmsParts = hms.Split(':');

@@ -17,15 +17,15 @@ namespace TouchNStars.Server {
             WebServer = new WebServer(o => o
                 .WithUrlPrefix($"http://*:{Port}")
                 .WithMode(HttpListenerMode.EmbedIO))
-                .WithWebApi("/", m => m.WithController<Controller>()) // Register the controller, which will be used to handle all the api requests which were previously in server.py
+                .WithWebApi("/api", m => m.WithController<Controller>()) // Register the controller, which will be used to handle all the api requests which were previously in server.py
                 .WithModule(new RedirectModule("/", "/app", request => request.RequestedPath.Equals("/"))); // Automatically redirect to user to the app, so the user doesn't have to enter /
         }
 
         public void Start() {
             try {
-                Logger.Debug("Creating Webserver");
+                Logger.Debug("Creating Touch-N-Stars Webserver");
                 CreateServer();
-                Logger.Info("Starting Webserver");
+                Logger.Info("Starting Touch-N-Stars Webserver");
                 if (WebServer != null) {
                     serverThread = new Thread(() => APITask(WebServer)) {
                         Name = "Touch-N-Stars API Thread"
