@@ -10,7 +10,9 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="EmbedIO" Version="3.5.2" />
     <PackageReference Include="NINA.Plugin" Version="3.0.0.2017-beta" />
+    <PackageReference Include="NINA.WPF.Base" Version="3.1.2.9001" />
   </ItemGroup>
   <PropertyGroup />
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
