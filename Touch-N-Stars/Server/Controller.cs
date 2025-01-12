@@ -56,7 +56,11 @@ public class Controller : WebApiController {
     public List<Hashtable> GetRecentLogs([QueryField] int count, [QueryField] string level) {
         List<Hashtable> logs = new List<Hashtable>();
 
-        if (level.Equals("ERROR") || level.Equals("WARNING") || level.Equals("INFO") || level.Equals("DEBUG")) {
+        if (string.IsNullOrEmpty(level)) {
+            level = string.Empty;
+        }
+
+        if (level.Equals("ERROR") || level.Equals("WARNING") || level.Equals("INFO") || level.Equals("DEBUG") || string.IsNullOrEmpty(level)) {
             string currentLogFile = Directory.GetFiles(CoreUtility.LogPath).OrderByDescending(File.GetCreationTime).First();
 
             string[] logLines = [];
@@ -72,7 +76,10 @@ public class Controller : WebApiController {
             foreach (string line in logLines) {
                 bool valid = true;
 
-                if (!line.Contains('|' + level + '|')) {
+                if (!line.Contains('|' + level + '|') && !string.IsNullOrEmpty(level)) {
+                    valid = false;
+                }
+                if (line.Contains("DATE|LEVEL|SOURCE|MEMBER|LINE|MESSAGE")) {
                     valid = false;
                 }
                 foreach (string excluded_member in excluded_members) {
@@ -110,7 +117,7 @@ public class Controller : WebApiController {
     }
 
     [Route(HttpVerbs.Get, "/autofocus/{action}")]
-    public async Task<object> ControlAutofocus([QueryField] string action) {
+    public async Task<object> ControlAutofocus(string action) {
         string targetUrl = $"{CoreUtility.BASE_API_URL}/equipment/focuser/auto-focus";
         bool info = action.Equals("info");
         bool start = action.Equals("start");
