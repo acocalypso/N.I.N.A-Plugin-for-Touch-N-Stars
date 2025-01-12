@@ -23,8 +23,7 @@ namespace TouchNStars.Server {
                 .WithUrlPrefix($"http://*:{Port}")
                 .WithMode(HttpListenerMode.EmbedIO))
                 .WithWebApi("/api", m => m.WithController<Controller>()) // Register the controller, which will be used to handle all the api requests which were previously in server.py
-                .WithModule(new RedirectModule("/", "/app", request => request.RequestedPath.Equals("/"))) // Automatically redirect to user to the app, so the user doesn't have to enter /
-                .WithStaticFolder("/app", webAppDir, false);
+                .WithStaticFolder("/", webAppDir, false);
         }
 
         public void Start() {
