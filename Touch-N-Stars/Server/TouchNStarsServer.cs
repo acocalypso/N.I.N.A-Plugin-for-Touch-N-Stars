@@ -4,6 +4,8 @@ using EmbedIO.WebApi;
 using NINA.Core.Utility;
 using NINA.Core.Utility.Notification;
 using System;
+using System.IO;
+using System.Reflection;
 using System.Threading;
 
 namespace TouchNStars.Server {
@@ -14,11 +16,15 @@ namespace TouchNStars.Server {
         public readonly int Port = 5000;
 
         public void CreateServer() {
+            string assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string webAppDir = Path.Combine(assemblyFolder, "app");
+
             WebServer = new WebServer(o => o
                 .WithUrlPrefix($"http://*:{Port}")
                 .WithMode(HttpListenerMode.EmbedIO))
                 .WithWebApi("/api", m => m.WithController<Controller>()) // Register the controller, which will be used to handle all the api requests which were previously in server.py
-                .WithModule(new RedirectModule("/", "/app", request => request.RequestedPath.Equals("/"))); // Automatically redirect to user to the app, so the user doesn't have to enter /
+                .WithModule(new RedirectModule("/", "/app", request => request.RequestedPath.Equals("/"))) // Automatically redirect to user to the app, so the user doesn't have to enter /
+                .WithStaticFolder("/app", webAppDir, false);
         }
 
         public void Start() {
