@@ -11,6 +11,7 @@ using System.Threading;
 namespace TouchNStars.Server {
     public class TouchNStarsServer {
         private Thread serverThread;
+        private Thread afWatcherThread;
         private CancellationTokenSource apiToken;
         public WebServer WebServer;
         public readonly int Port = 5000;
@@ -37,6 +38,12 @@ namespace TouchNStars.Server {
                     };
                     // serverThread.SetApartmentState(ApartmentState.STA);
                     serverThread.Start();
+                    afWatcherThread = new Thread(BackgroundWorker.MonitorLastAF) {
+                        Name = "AF monitor Thread"
+                    };
+                    afWatcherThread.Start();
+                    BackgroundWorker.ObserveGuider();
+                    BackgroundWorker.MonitorLogForEvents();
                 }
             } catch (Exception ex) {
                 Logger.Error($"failed to start web server: {ex}");
@@ -48,6 +55,7 @@ namespace TouchNStars.Server {
                 apiToken?.Cancel();
                 WebServer?.Dispose();
                 WebServer = null;
+                BackgroundWorker.Cleanup();
             } catch (Exception ex) {
                 Logger.Error($"failed to stop API: {ex}");
             }
