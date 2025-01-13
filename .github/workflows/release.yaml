@@ -28,7 +28,7 @@ jobs:
 
       - name: Pull and build external repository
         run: |
-          git clone https://github.com/JohannesWorks/Touch-N-Stars.git external_repo
+          git clone https://github.com/JohannesWorks/N.I.N.A-Plugin-for-Touch-N-Stars.git external_repo
           cd external_repo
           npm install
           npm run build
@@ -38,7 +38,13 @@ jobs:
       - name: Build .NET Assemblies
         run: |
           dotnet restore
-          dotnet build ${{ env.PLUGIN_NAME }}.sln -c Release -p:PostBuildEvent= -p:Version=${{ github.event.inputs.tag }}
+          dotnet build "Touch-N-Stars/Touch-N-Stars.sln" -c Release -p:PostBuildEvent= -p:Version=${{ github.event.inputs.tag }}
+
+      - name: Locate DLL file
+        run: |
+          $dllPath = Get-ChildItem -Path "Touch-N-Stars/bin/Release/" -Recurse -Filter "${{ env.PLUGIN_DLL_NAME }}.dll" | Select-Object -ExpandProperty FullName
+          if (-not $dllPath) { throw "DLL file not found!" }
+          Write-Output "Found DLL at: $dllPath"
 
       - name: Prepare package
         run: |
