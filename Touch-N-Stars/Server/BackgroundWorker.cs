@@ -3,14 +3,8 @@ using NINA.Core.Interfaces;
 using NINA.Core.Utility;
 using NINA.WPF.Base.Utility.AutoFocus;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Threading.Tasks;
-using TouchNStars.Server;
 using TouchNStars.Utility;
 
 internal static class BackgroundWorker {
@@ -34,13 +28,7 @@ internal static class BackgroundWorker {
 
     private static void OnLogFileChanged(object sender, FileSystemEventArgs e) {
         try {
-            string[] logLines = [];
-
-            using (var stream = new FileStream(e.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            using (var reader = new StreamReader(stream)) {
-                string content = reader.ReadToEnd();
-                logLines = content.Split('\n');
-            }
+            string[] logLines = CoreUtility.SafeRead(e.FullPath).Split('\n');
 
             string[] newLines = logLines.Skip(lastLine).ToArray();
             lastLine = logLines.Length;
@@ -98,14 +86,16 @@ internal static class BackgroundWorker {
     public static void MonitorLastAF() {
         if (afWatcher != null) return;  // Prevent multiple instances
 
-        afWatcher = new FileSystemWatcher(CoreUtility.AfPath, "*.json");
-        afWatcher.EnableRaisingEvents = true;  // Enable the watcher
-        afWatcher.Changed += OnAFFileChanged;
+        afWatcher = new FileSystemWatcher(CoreUtility.AfPath);
+        afWatcher.EnableRaisingEvents = true; // Enable the watcher
+        afWatcher.Created += OnAFFileChanged;
     }
 
     private static void OnAFFileChanged(object sender, FileSystemEventArgs e) {
-        if (e.ChangeType == WatcherChangeTypes.Changed) {
-            AutoFocusReport report = JsonConvert.DeserializeObject<AutoFocusReport>(File.ReadAllText(e.FullPath));
+        if (e.ChangeType == WatcherChangeTypes.Created && e.FullPath.EndsWith(".json")) {
+            Logger.Info("Found new AF report: " + e.FullPath);
+            string content = CoreUtility.SafeRead(e.FullPath);
+            AutoFocusReport report = JsonConvert.DeserializeObject<AutoFocusReport>(content);
             if (report.Timestamp > DataContainer.lastAfTimestamp) {
                 DataContainer.lastAfTimestamp = report.Timestamp;
                 DataContainer.afRun = false;

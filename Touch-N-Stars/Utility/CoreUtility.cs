@@ -32,4 +32,11 @@ public static class CoreUtility {
             throw new ArgumentException("DMS string must be in the format DD:MM:SS.s, was: " + dms);
         }
     }
+
+    public static string SafeRead(string path) {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        string content = reader.ReadToEnd();
+        return content;
+    }
 }
