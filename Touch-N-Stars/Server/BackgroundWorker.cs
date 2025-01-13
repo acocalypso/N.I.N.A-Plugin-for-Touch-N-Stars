@@ -1,5 +1,7 @@
+using Newtonsoft.Json;
 using NINA.Core.Interfaces;
 using NINA.Core.Utility;
+using NINA.WPF.Base.Utility.AutoFocus;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,6 +16,7 @@ using TouchNStars.Utility;
 internal static class BackgroundWorker {
     private static int lastLine = 0;
     private static FileSystemWatcher watcher;  // Add static field
+    private static FileSystemWatcher afWatcher;
 
     public static void MonitorLogForEvents() {
         if (watcher != null) return;  // Prevent multiple instances
@@ -65,15 +68,16 @@ internal static class BackgroundWorker {
         }
     }
 
-    private static bool shouldRun = true;
-
     public static void Cleanup() {
         if (watcher != null) {
-            shouldRun = false;
             watcher.EnableRaisingEvents = false;
             watcher.Changed -= OnLogFileChanged;
             watcher.Dispose();
             watcher = null;
+            afWatcher.EnableRaisingEvents = false;
+            afWatcher.Changed -= OnAFFileChanged;
+            afWatcher.Dispose();
+            afWatcher = null;
             TouchNStars.TouchNStars.Mediators.Guider.GuideEvent -= Guider_GuideEvent;
         }
     }
@@ -91,26 +95,22 @@ internal static class BackgroundWorker {
         }
     }
 
-    public static async void MonitorLastAF() {
-        try {
-            HttpClient client = new HttpClient();
-            while (shouldRun) {
-                await Task.Delay(1000);
-                var response = await client.GetAsync($"{CoreUtility.BASE_API_URL}/equipment/focuser/last-af");
-                if (response.IsSuccessStatusCode) {
-                    var json = await response.Content.ReadFromJsonAsync<ApiResponse>();
-                    if (json?.Success == true) {
-                        DateTime timestamp = ((JsonElement)json.Response).GetProperty("Timestamp").GetDateTime();
-                        if (timestamp > DataContainer.lastAfTimestamp) {
-                            DataContainer.lastAfTimestamp = timestamp;
-                            DataContainer.afRun = false;
-                            DataContainer.newAfGraph = true;
-                        }
-                    }
-                }
+    public static void MonitorLastAF() {
+        if (afWatcher != null) return;  // Prevent multiple instances
+
+        afWatcher = new FileSystemWatcher(CoreUtility.AfPath, "*.json");
+        afWatcher.EnableRaisingEvents = true;  // Enable the watcher
+        afWatcher.Changed += OnAFFileChanged;
+    }
+
+    private static void OnAFFileChanged(object sender, FileSystemEventArgs e) {
+        if (e.ChangeType == WatcherChangeTypes.Changed) {
+            AutoFocusReport report = JsonConvert.DeserializeObject<AutoFocusReport>(File.ReadAllText(e.FullPath));
+            if (report.Timestamp > DataContainer.lastAfTimestamp) {
+                DataContainer.lastAfTimestamp = report.Timestamp;
+                DataContainer.afRun = false;
+                DataContainer.newAfGraph = true;
             }
-        } catch (Exception ex) {
-            Logger.Error(ex);
         }
     }
 }

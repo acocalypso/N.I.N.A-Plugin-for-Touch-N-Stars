@@ -7,7 +7,20 @@
     <!--  Furthermore the Resource Dictionary has to be exported via code behind export attributes  -->
     <DataTemplate x:Key="Touch 'N' Stars_Options">
         <StackPanel Orientation="Vertical">
-
+            <StackPanel Orientation="Horizontal">
+                <TextBlock
+                    Width="100"
+                    Margin="0,0,5,0"
+                    Text="Webapp Enabled " />
+                <CheckBox IsChecked="{Binding AppEnabled}" />
+            </StackPanel>
+            <StackPanel Margin="0,5,0,0" Orientation="Horizontal">
+                <TextBlock
+                    Width="100"
+                    Margin="0,0,5,0"
+                    Text="API Port " />
+                <TextBox Width="100" Text="{Binding Port}" />
+            </StackPanel>
         </StackPanel>
     </DataTemplate>
 </ResourceDictionary>

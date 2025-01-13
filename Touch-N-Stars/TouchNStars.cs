@@ -1,5 +1,5 @@
-﻿using ASCOM.Com;
-using NINA.Core.Utility;
+﻿using NINA.Core.Utility;
+using NINA.Core.Utility.Notification;
 using NINA.Equipment.Interfaces.Mediator;
 using NINA.Image.Interfaces;
 using NINA.Plugin;
@@ -38,22 +38,44 @@ namespace TouchNStars {
                 CoreUtil.SaveSettings(Settings.Default);
             }
             Mediators = new Mediators(DeepSkyObjectSearchVM, imageDataFactory, framingAssistantVM, profileService, guider);
-            server = new TouchNStarsServer();
-            server.Start();
+
+            if (AppEnabled) {
+                server = new TouchNStarsServer();
+                server.Start();
+            }
         }
 
         public override Task Teardown() {
-            // Make sure to unregister an event when the object is no longer in use. Otherwise garbage collection will be prevented.
             server.Stop();
             return base.Teardown();
         }
 
-        public string DefaultNotificationMessage {
+        public bool AppEnabled {
             get {
-                return Settings.Default.DefaultNotificationMessage;
+                return Settings.Default.AppEnabled;
             }
             set {
-                Settings.Default.DefaultNotificationMessage = value;
+                Settings.Default.AppEnabled = value;
+                CoreUtil.SaveSettings(Settings.Default);
+                RaisePropertyChanged();
+
+                if (value) {
+                    server = new TouchNStarsServer();
+                    server.Start();
+                    Notification.ShowSuccess("Touch 'N' Stars started!");
+                } else {
+                    server.Stop();
+                    Notification.ShowSuccess("Touch 'N' Stars stopped!");
+                }
+            }
+        }
+
+        public int Port {
+            get {
+                return Settings.Default.Port;
+            }
+            set {
+                Settings.Default.Port = value;
                 CoreUtil.SaveSettings(Settings.Default);
                 RaisePropertyChanged();
             }
