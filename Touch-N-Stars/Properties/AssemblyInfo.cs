@@ -17,10 +17,10 @@ using System.Runtime.InteropServices;
 // The following attributes are not required for the plugin per se, but are required by the official manifest meta data
 
 // Your name
-[assembly: AssemblyCompany("Johannes Maier, Christian Palm")]
+[assembly: AssemblyCompany("Johannes Maier, Christian Palm, Christian Wöhrle")]
 // The product name that this plugin is part of
 [assembly: AssemblyProduct("Touch 'N' Stars")]
-[assembly: AssemblyCopyright("Copyright © 2025 Johannes Maier, Christian Palm")]
+[assembly: AssemblyCopyright("Copyright © 2025 Johannes Maier, Christian Palm, Christian Wöhrle")]
 
 // The minimum Version of N.I.N.A. that this plugin is compatible with
 [assembly: AssemblyMetadata("MinimumApplicationVersion", "3.1.2.9001")]

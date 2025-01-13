@@ -1,0 +1,77 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag version (e.g., 1.0.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  PLUGIN_NAME: "Touch-N-Stars"
+  PLUGIN_DLL_NAME: "TouchNStars"
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare folders
+        run: |
+          mkdir packages
+          mkdir packages/${{ env.PLUGIN_NAME }}
+
+      - name: Pull and build external repository
+        run: |
+          git clone https://github.com/JohannesWorks/Touch-N-Stars.git external_repo
+          cd external_repo
+          npm install
+          npm run build
+          cd ..
+          mv external_repo/dist app
+
+      - name: Build .NET Assemblies
+        run: |
+          dotnet restore
+          dotnet build ${{ env.PLUGIN_NAME }}.sln -c Release -p:PostBuildEvent= -p:Version=${{ github.event.inputs.tag }}
+
+      - name: Prepare package
+        run: |
+          Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
+          Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
+          Copy-Item "Touch-N-Stars/extra-libs/*.dll" "packages/${{ env.PLUGIN_NAME }}/" -Force
+  
+      - name: Add app folder to package
+        run: |
+            $targetPath = "packages/${{ env.PLUGIN_NAME }}/app"
+            if (Test-Path $targetPath) {
+              Remove-Item -Path $targetPath -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path $targetPath -Force
+            Copy-Item -Recurse -Force app/* $targetPath
+  
+      - name: Create Plugin archives and manifests
+        run: |
+            curl https://api.bitbucket.org/2.0/repositories/isbeorn/nina.plugin.manifests/src/main/tools/CreateNET7Manifest.ps1 >> CreateNET7Manifest.ps1
+            pwsh CreateNET7Manifest.ps1 -file "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -installerUrl "https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.tag }}/${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip" -createArchive -includeAll -appendVersionToArchive
+            Get-ChildItem -Recurse *.zip
+            Rename-Item -Path "manifest.json" -NewName "${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json"
+  
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          name: Release ${{ github.event.inputs.tag }}
+          draft: false
+          prerelease: false
+          files: |
+            TouchNStars.${{ github.event.inputs.tag }}.zip
+            TouchNStars.${{ github.event.inputs.tag }}.manifest.json
