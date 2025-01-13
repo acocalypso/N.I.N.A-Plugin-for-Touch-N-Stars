@@ -20,6 +20,20 @@ namespace TouchNStars.Server;
 public class GuiderData {
     public List<double> RADistanceRaw { get; set; }
     public List<double> DECDistanceRaw { get; set; }
+
+    public GuiderData() {
+        RADistanceRaw = new List<double>();
+        DECDistanceRaw = new List<double>();
+    }
+
+    public void AddValues(double ra, double dec, int limit = 50) {
+        if (RADistanceRaw.Count >= limit) {
+            RADistanceRaw.RemoveAt(0);
+            DECDistanceRaw.RemoveAt(0);
+        }
+        RADistanceRaw.Add(ra);
+        DECDistanceRaw.Add(dec);
+    }
 }
 
 public class NGCSearchResult {
@@ -30,7 +44,7 @@ public class NGCSearchResult {
 
 public class ApiResponse {
     public bool Success { get; set; }
-    public string Response { get; set; }
+    public object Response { get; set; }
     public string Error { get; set; }
     public int StatusCode { get; set; }
     public string Type { get; set; }
@@ -38,22 +52,11 @@ public class ApiResponse {
 
 public class Controller : WebApiController {
 
-    private object lockObj = new object();
-
-    private GuiderData guiderData = new GuiderData();
-    private bool afRun = false;
-    private bool afError = false;
-    private string afErrorText = string.Empty;
-    private bool newAfGraph = false;
-    private DateTime lastAfTimestamp = DateTime.MinValue;
-    private bool wshvActive = false;
-    private int wshvPort = 80;
-
     private static readonly List<string> excluded_members = new List<string>() { "GetEquipment", "RequestAll", "LoadPlugin" };
 
 
     [Route(HttpVerbs.Get, "/logs")]
-    public List<Hashtable> GetRecentLogs([QueryField] int count, [QueryField] string level) {
+    public List<Hashtable> GetRecentLogs([QueryField(true)] int count, [QueryField] string level) {
         List<Hashtable> logs = new List<Hashtable>();
 
         if (string.IsNullOrEmpty(level)) {
@@ -106,13 +109,14 @@ public class Controller : WebApiController {
                 }
             }
         }
+        logs.Reverse();
         return logs;
     }
 
     [Route(HttpVerbs.Get, "/wshv")]
     public object GetWshvData() {
-        lock (lockObj) {
-            return new Dictionary<string, object>() { { "wshvActive", wshvActive }, { "wshvPort", wshvPort } };
+        lock (DataContainer.lockObj) {
+            return new Dictionary<string, object>() { { "wshvActive", DataContainer.wshvActive }, { "wshvPort", DataContainer.wshvPort } };
         }
     }
 
@@ -126,17 +130,17 @@ public class Controller : WebApiController {
         if (info) {
             return new Dictionary<string, object>() {
                 { "Success", true },
-                { "autofocus_running", afRun },
-                { "newAfGraph", newAfGraph },
-                { "afError", afError },
-                { "afErrorText", afErrorText },
+                { "autofocus_running", DataContainer.afRun },
+                { "newAfGraph", DataContainer.newAfGraph },
+                { "afError", DataContainer.afError },
+                { "afErrorText", DataContainer.afErrorText },
             };
         }
         if (start) {
-            afRun = true;
-            newAfGraph = false;
-            afError = false;
-            afErrorText = string.Empty;
+            DataContainer.afRun = true;
+            DataContainer.newAfGraph = false;
+            DataContainer.afError = false;
+            DataContainer.afErrorText = string.Empty;
 
             try {
                 HttpClient client = new HttpClient();
@@ -160,8 +164,8 @@ public class Controller : WebApiController {
         }
 
         if (stop) {
-            afRun = false;
-            newAfGraph = false;
+            DataContainer.afRun = false;
+            DataContainer.newAfGraph = false;
 
             try {
                 HttpClient client = new HttpClient();
@@ -189,8 +193,8 @@ public class Controller : WebApiController {
 
     [Route(HttpVerbs.Get, "/guider-data")]
     public object GetGuiderData() {
-        lock (lockObj) {
-            return guiderData;
+        lock (DataContainer.lockObj) {
+            return DataContainer.guiderData;
         }
     }
 

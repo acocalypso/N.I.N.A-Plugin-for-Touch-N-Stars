@@ -1,5 +1,6 @@
 ﻿using ASCOM.Com;
 using NINA.Core.Utility;
+using NINA.Equipment.Interfaces.Mediator;
 using NINA.Image.Interfaces;
 using NINA.Plugin;
 using NINA.Plugin.Interfaces;
@@ -14,11 +15,12 @@ using Settings = TouchNStars.Properties.Settings;
 
 namespace TouchNStars {
 
-    public class Mediators(IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IImageDataFactory ImageDataFactory, IFramingAssistantVM framingAssistantVM, IProfileService profile) {
+    public class Mediators(IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IImageDataFactory ImageDataFactory, IFramingAssistantVM framingAssistantVM, IProfileService profile, IGuiderMediator guider) {
         public readonly IDeepSkyObjectSearchVM DeepSkyObjectSearchVM = DeepSkyObjectSearchVM;
         public readonly IImageDataFactory ImageDataFactory = ImageDataFactory;
         public readonly IFramingAssistantVM FramingAssistantVM = framingAssistantVM;
         public readonly IProfileService Profile = profile;
+        public readonly IGuiderMediator Guider = guider;
     }
 
     [Export(typeof(IPluginManifest))]
@@ -29,13 +31,13 @@ namespace TouchNStars {
 
 
         [ImportingConstructor]
-        public TouchNStars(IProfileService profileService, IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IImageDataFactory imageDataFactory, IFramingAssistantVM framingAssistantVM) {
+        public TouchNStars(IProfileService profileService, IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IImageDataFactory imageDataFactory, IFramingAssistantVM framingAssistantVM, IGuiderMediator guider) {
             if (Settings.Default.UpdateSettings) {
                 Settings.Default.Upgrade();
                 Settings.Default.UpdateSettings = false;
                 CoreUtil.SaveSettings(Settings.Default);
             }
-            Mediators = new Mediators(DeepSkyObjectSearchVM, imageDataFactory, framingAssistantVM, profileService);
+            Mediators = new Mediators(DeepSkyObjectSearchVM, imageDataFactory, framingAssistantVM, profileService, guider);
             server = new TouchNStarsServer();
             server.Start();
         }
