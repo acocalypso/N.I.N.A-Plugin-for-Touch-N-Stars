@@ -8,6 +8,7 @@ public static class CoreUtility {
 
     public static readonly string CachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "FramingAssistantCache");
     public static readonly string LogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "Logs");
+    public static readonly string AfPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "AutoFocus");
     public static readonly string Hips2FitsUrl = "http://alaskybis.u-strasbg.fr/hips-image-services/hips2fits";
 
     public static double HmsToDegrees(string hms) {

@@ -1,9 +1,11 @@
 using EmbedIO;
 using EmbedIO.Actions;
+using EmbedIO.Files;
 using EmbedIO.WebApi;
 using NINA.Core.Utility;
 using NINA.Core.Utility.Notification;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -11,10 +13,11 @@ using System.Threading;
 namespace TouchNStars.Server {
     public class TouchNStarsServer {
         private Thread serverThread;
-        private Thread afWatcherThread;
         private CancellationTokenSource apiToken;
         public WebServer WebServer;
         public readonly int Port = 5000;
+
+        private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings"];
 
         public void CreateServer() {
             string assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -22,9 +25,13 @@ namespace TouchNStars.Server {
 
             WebServer = new WebServer(o => o
                 .WithUrlPrefix($"http://*:{Port}")
-                .WithMode(HttpListenerMode.EmbedIO))
-                .WithWebApi("/api", m => m.WithController<Controller>()) // Register the controller, which will be used to handle all the api requests which were previously in server.py
-                .WithStaticFolder("/", webAppDir, false);
+                .WithMode(HttpListenerMode.EmbedIO));
+
+            foreach (string endPoint in appEndPoints) {
+                WebServer = WebServer.WithModule(new RedirectModule("/" + endPoint, "/")); // redirect all reloads of the app to the root
+            }
+            WebServer = WebServer.WithWebApi("/api", m => m.WithController<Controller>()); // Register the controller, which will be used to handle all the api requests which were previously in server.py
+            WebServer = WebServer.WithStaticFolder("/", webAppDir, false); // Register the static folder, which will be used to serve the web app
         }
 
         public void Start() {
@@ -38,10 +45,7 @@ namespace TouchNStars.Server {
                     };
                     // serverThread.SetApartmentState(ApartmentState.STA);
                     serverThread.Start();
-                    afWatcherThread = new Thread(BackgroundWorker.MonitorLastAF) {
-                        Name = "AF monitor Thread"
-                    };
-                    afWatcherThread.Start();
+                    BackgroundWorker.MonitorLastAF();
                     BackgroundWorker.ObserveGuider();
                     BackgroundWorker.MonitorLogForEvents();
                 }
