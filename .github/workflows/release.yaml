@@ -40,11 +40,11 @@ jobs:
           dotnet restore
           dotnet build ${{ env.PLUGIN_NAME }}.sln -c Release -p:PostBuildEvent= -p:Version=${{ github.event.inputs.tag }}
 
-      - name: Prepare package
-        run: |
-          Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
-          Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
-      
+          - name: Prepare package
+          run: |
+            Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
+            Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
+  
       - name: Add app folder to package
         run: |
             $targetPath = "packages/${{ env.PLUGIN_NAME }}/app"
@@ -53,20 +53,14 @@ jobs:
             }
             New-Item -ItemType Directory -Path $targetPath -Force
             Copy-Item -Recurse -Force app/* $targetPath
-            
+  
       - name: Create Plugin archives and manifests
         run: |
-              curl https://api.bitbucket.org/2.0/repositories/isbeorn/nina.plugin.manifests/src/main/tools/CreateNET7Manifest.ps1 >> CreateNET7Manifest.ps1
-              pwsh CreateNET7Manifest.ps1 -file "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -installerUrl "https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.tag }}/${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip" -createArchive -includeAll -appendVersionToArchive
-              # Let's see what files were created and where
-              Get-ChildItem -Recurse *.zip
-              Get-ChildItem -Recurse *.json
-              # Move files to the expected location if needed
-              if (Test-Path "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.zip") {
-                Move-Item "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.zip" "./${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip"
-              }
-              Rename-Item -Path "manifest.json" -NewName "${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json"
-    
+            curl https://api.bitbucket.org/2.0/repositories/isbeorn/nina.plugin.manifests/src/main/tools/CreateNET7Manifest.ps1 >> CreateNET7Manifest.ps1
+            pwsh CreateNET7Manifest.ps1 -file "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -installerUrl "https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.tag }}/${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip" -createArchive -includeAll -appendVersionToArchive
+            Get-ChildItem -Recurse *.zip
+            Rename-Item -Path "manifest.json" -NewName "${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json"
+  
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -78,5 +72,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip
+            packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.zip
             ${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json
