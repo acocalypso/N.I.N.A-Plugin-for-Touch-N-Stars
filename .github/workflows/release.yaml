@@ -12,7 +12,7 @@ permissions:
 
 env:
   PLUGIN_NAME: "Touch-N-Stars"
-  PLUGIN_DLL_NAME: "NINA.Plugins.TouchNStars"
+  PLUGIN_DLL_NAME: "TouchNStars.dll"
 
 jobs:
   build-and-release:
