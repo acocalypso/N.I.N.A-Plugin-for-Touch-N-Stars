@@ -75,5 +75,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            TouchNStars.${{ steps.get_version.outputs.version }}.zip
-            TouchNStars.${{ steps.get_version.outputs.version }}.manifest.json
+            TouchNStars.zip
+            TouchNStars.manifest.json
