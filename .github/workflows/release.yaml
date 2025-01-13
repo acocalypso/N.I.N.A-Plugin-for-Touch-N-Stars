@@ -44,10 +44,14 @@ jobs:
         run: |
           Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
           Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
-
-      - name: Add app folder to package
-        run: |
-          Copy-Item -Recurse -Force app/* "packages/${{ env.PLUGIN_NAME }}/app"
+          - name: Add app folder to package
+          run: |
+            $targetPath = "packages/${{ env.PLUGIN_NAME }}/app"
+            if (Test-Path $targetPath) {
+              Remove-Item -Path $targetPath -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path $targetPath -Force
+            Copy-Item -Recurse -Force app/* $targetPath
 
       - name: Create Plugin archives and manifests
         run: |
