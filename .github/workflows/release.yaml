@@ -40,10 +40,10 @@ jobs:
           dotnet restore
           dotnet build ${{ env.PLUGIN_NAME }}.sln -c Release -p:PostBuildEvent= -p:Version=${{ github.event.inputs.tag }}
 
-          - name: Prepare package
-          run: |
-            Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
-            Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
+      - name: Prepare package
+        run: |
+          Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
+          Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
   
       - name: Add app folder to package
         run: |
