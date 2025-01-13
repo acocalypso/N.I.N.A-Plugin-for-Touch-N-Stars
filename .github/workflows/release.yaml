@@ -53,13 +53,20 @@ jobs:
             }
             New-Item -ItemType Directory -Path $targetPath -Force
             Copy-Item -Recurse -Force app/* $targetPath
-
+            
       - name: Create Plugin archives and manifests
         run: |
-          curl https://api.bitbucket.org/2.0/repositories/isbeorn/nina.plugin.manifests/src/main/tools/CreateNET7Manifest.ps1 >> CreateNET7Manifest.ps1
-          pwsh CreateNET7Manifest.ps1 -file packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll -installerUrl https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.tag }}/${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip -createArchive -includeAll -appendVersionToArchive
-          Rename-Item -Path "manifest.json" -NewName "${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json"
-
+              curl https://api.bitbucket.org/2.0/repositories/isbeorn/nina.plugin.manifests/src/main/tools/CreateNET7Manifest.ps1 >> CreateNET7Manifest.ps1
+              pwsh CreateNET7Manifest.ps1 -file "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -installerUrl "https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.tag }}/${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip" -createArchive -includeAll -appendVersionToArchive
+              # Let's see what files were created and where
+              Get-ChildItem -Recurse *.zip
+              Get-ChildItem -Recurse *.json
+              # Move files to the expected location if needed
+              if (Test-Path "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.zip") {
+                Move-Item "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.zip" "./${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip"
+              }
+              Rename-Item -Path "manifest.json" -NewName "${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json"
+    
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -71,5 +78,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ./${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip
-            ./${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json
+            ${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip
+            ${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json
