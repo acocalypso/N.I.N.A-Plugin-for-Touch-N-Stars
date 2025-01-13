@@ -38,13 +38,7 @@ jobs:
       - name: Build .NET Assemblies
         run: |
           dotnet restore
-          dotnet build "Touch-N-Stars/Touch-N-Stars.sln" -c Release -p:PostBuildEvent= -p:Version=${{ github.event.inputs.tag }}
-
-      - name: Locate DLL file
-        run: |
-          $dllPath = Get-ChildItem -Path "Touch-N-Stars/bin/Release/" -Recurse -Filter "${{ env.PLUGIN_DLL_NAME }}.dll" | Select-Object -ExpandProperty FullName
-          if (-not $dllPath) { throw "DLL file not found!" }
-          Write-Output "Found DLL at: $dllPath"
+          dotnet build ${{ env.PLUGIN_NAME }}.sln -c Release -p:PostBuildEvent= -p:Version=${{ github.event.inputs.tag }}
 
       - name: Prepare package
         run: |
