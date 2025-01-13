@@ -44,7 +44,7 @@ jobs:
         run: |
           Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force
           Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.pdb" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.pdb" -Force
-          Copy-Item "extra-libs/*.dll" "packages/${{ env.PLUGIN_NAME }}/" -Force
+          Copy-Item "Touch-N-Stars/extra-libs/*.dll" "packages/${{ env.PLUGIN_NAME }}/" -Force
   
       - name: Add app folder to package
         run: |
