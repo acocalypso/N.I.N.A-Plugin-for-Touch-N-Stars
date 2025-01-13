@@ -2,6 +2,7 @@ using EmbedIO;
 using EmbedIO.Actions;
 using EmbedIO.Files;
 using EmbedIO.WebApi;
+using EmbedIO.Cors;
 using NINA.Core.Utility;
 using NINA.Core.Utility.Notification;
 using System;
@@ -25,7 +26,12 @@ namespace TouchNStars.Server {
 
             WebServer = new WebServer(o => o
                 .WithUrlPrefix($"http://*:{Settings.Default.Port}")
-                .WithMode(HttpListenerMode.EmbedIO));
+                .WithMode(HttpListenerMode.EmbedIO))
+                .WithCors(
+                    "http://tauri.localhost", // Allow this origin
+                    "content-type,authorization", // Allowed headers
+                    "GET,POST,PUT,DELETE,OPTIONS" // Allowed methods
+                );
 
             foreach (string endPoint in appEndPoints) {
                 WebServer = WebServer.WithModule(new RedirectModule("/" + endPoint, "/")); // redirect all reloads of the app to the root
