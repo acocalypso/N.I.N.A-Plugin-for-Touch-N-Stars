@@ -72,5 +72,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.zip
-            ${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json
+            TouchNStars.${{ github.event.inputs.tag }}.zip
+            TouchNStars.${{ github.event.inputs.tag }}.manifest.json
