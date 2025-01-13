@@ -2,10 +2,6 @@ name: Build and Release
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag version (e.g., 1.0.0.0)'
-        required: true
 
 permissions:
   contents: write
@@ -35,10 +31,16 @@ jobs:
           cd ..
           mv external_repo/dist app
 
+      - name: Get Assembly Version
+        id: get_version
+        run: |
+          $version = (Select-String -Path "Touch-N-Stars/Properties/AssemblyInfo.cs" -Pattern 'AssemblyVersion\("([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"\)').Matches.Groups[1].Value
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Build .NET Assemblies
         run: |
           dotnet restore
-          dotnet build ${{ env.PLUGIN_NAME }}.sln -c Release -p:PostBuildEvent= -p:Version=${{ github.event.inputs.tag }}
+          dotnet build ${{ env.PLUGIN_NAME }}.sln -c Release -p:PostBuildEvent= -p:Version=${{ steps.get_version.outputs.version }}
 
       - name: Prepare package
         run: |
@@ -58,20 +60,20 @@ jobs:
       - name: Create Plugin archives and manifests
         run: |
             curl https://api.bitbucket.org/2.0/repositories/isbeorn/nina.plugin.manifests/src/main/tools/CreateNET7Manifest.ps1 >> CreateNET7Manifest.ps1
-            pwsh CreateNET7Manifest.ps1 -file "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -installerUrl "https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.tag }}/${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.zip" -createArchive -includeAll -appendVersionToArchive
+            pwsh CreateNET7Manifest.ps1 -file "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -installerUrl "https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.version }}/${{ env.PLUGIN_DLL_NAME }}.${{ steps.get_version.outputs.version }}.zip" -createArchive -includeAll -appendVersionToArchive
             Get-ChildItem -Recurse *.zip
-            Rename-Item -Path "manifest.json" -NewName "${{ env.PLUGIN_DLL_NAME }}.${{ github.event.inputs.tag }}.manifest.json"
-  
+            Rename-Item -Path "manifest.json" -NewName "${{ env.PLUGIN_DLL_NAME }}.${{ steps.get_version.outputs.version }}.manifest.json"
+      
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: Release ${{ github.event.inputs.tag }}
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: Release ${{ steps.get_version.outputs.version }}
           draft: false
           prerelease: false
           files: |
-            TouchNStars.${{ github.event.inputs.tag }}.zip
-            TouchNStars.${{ github.event.inputs.tag }}.manifest.json
+            TouchNStars.${{ steps.get_version.outputs.version }}.zip
+            TouchNStars.${{ steps.get_version.outputs.version }}.manifest.json
