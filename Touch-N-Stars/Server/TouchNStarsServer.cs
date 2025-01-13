@@ -9,13 +9,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using TouchNStars.Properties;
 
 namespace TouchNStars.Server {
     public class TouchNStarsServer {
         private Thread serverThread;
         private CancellationTokenSource apiToken;
         public WebServer WebServer;
-        public readonly int Port = 5000;
 
         private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings"];
 
@@ -24,7 +24,7 @@ namespace TouchNStars.Server {
             string webAppDir = Path.Combine(assemblyFolder, "app");
 
             WebServer = new WebServer(o => o
-                .WithUrlPrefix($"http://*:{Port}")
+                .WithUrlPrefix($"http://*:{Settings.Default.Port}")
                 .WithMode(HttpListenerMode.EmbedIO));
 
             foreach (string endPoint in appEndPoints) {
