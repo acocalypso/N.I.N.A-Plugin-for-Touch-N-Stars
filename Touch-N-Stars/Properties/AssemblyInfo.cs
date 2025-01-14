@@ -54,6 +54,8 @@ using System.Runtime.InteropServices;
 # Touch'N'Stars: WebApp for Mobile Control of NINA
 
 ### 🚀 **Current Status: Beta Version**  
+**Android Build:** Available at [GitHub Releases](https://github.com/Touch-N-Stars/Touch-N-Stars/releases)
+
 This web application is in **development phase** and is aimed at astronomy enthusiasts who want to conveniently set up their equipment using the **NINA** (Nighttime Imaging 'N' Astronomy) software via touch devices.
 
 ### 🏁 **Purpose of the WebApp**  
