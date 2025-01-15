@@ -22,7 +22,7 @@ public static class CoreUtility {
 
     public static double DmsToDegrees(string dms) {
         int sign = dms.StartsWith('-') ? -1 : 1;
-        string stripped = dms.Remove(0, 1);
+        string stripped = dms.StartsWith('-') || dms.StartsWith('+') ? dms.Substring(1) : dms;
 
         string[] dmsParts = stripped.Split(':');
 
