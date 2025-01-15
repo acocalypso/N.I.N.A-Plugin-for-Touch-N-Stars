@@ -1,4 +1,7 @@
 # N.I.N.A-Plugin-for-Touch-N-Stars
+
+[English version](README_en.md)
+
 Dieses Plugin dient zur Integration von [Touch'N'Stars](https://github.com/Touch-N-Stars/Touch-N-Stars) in der Astrosoftware **NINA** (Nighttime Imaging 'N' Astronomy).
 
 ### 🚀 **Aktueller Status: Beta-Version**  
@@ -6,7 +9,8 @@ Das Plugin befindet sich aktuell in der Entwicklung und kann noch Fehler enthalt
 
 ### 🔧 **Installieren**
 Um das Plugin nutzen zu können, muss der Inhalt der ZIP-Datei in das Pluginverzeichnis von NINA kopiert werden.
-Dies befindet sich meist unter: %LOCALAPPDATA%/NINA/Plugins/3.0.0/
+Dies befindet sich meist unter: %LOCALAPPDATA%/NINA/Plugins/3.0.0/Touch-N-Stars
+Sollte der Ordner nicht vorhanden sein, bitte vorher erstellen.
 
 ### 🧩 **Wichtige Hinweise** 
 - Es wird das Plugin **Advanced API** in der aktuellsten Version benötigt.
