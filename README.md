@@ -1,5 +1,5 @@
 # N.I.N.A-Plugin-for-Touch-N-Stars
-Dieses Plugin dient zur Integration von [Touch'N'Stars](https://github.com/Touch-N-Stars/Touch-N-Stars) in NINA.
+Dieses Plugin dient zur Integration von [Touch'N'Stars](https://github.com/Touch-N-Stars/Touch-N-Stars) in der Astrosoftware **NINA** (Nighttime Imaging 'N' Astronomy).
 
 ### 🚀 **Aktueller Status: Beta-Version**  
 Das Plugin befindet sich aktuell in der Entwicklung und kann noch Fehler enthalten.
