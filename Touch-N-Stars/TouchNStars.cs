@@ -10,8 +10,10 @@ using System.ComponentModel;
 using System.ComponentModel.Composition;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using TouchNStars.Utility;
 using TouchNStars.Server;
 using Settings = TouchNStars.Properties.Settings;
+using System.Collections.Generic;
 
 namespace TouchNStars {
 
@@ -39,6 +41,8 @@ namespace TouchNStars {
             }
             Mediators = new Mediators(DeepSkyObjectSearchVM, imageDataFactory, framingAssistantVM, profileService, guider);
 
+            SetHostNames();
+            
             if (AppEnabled) {
                 server = new TouchNStarsServer();
                 server.Start();
@@ -81,6 +85,47 @@ namespace TouchNStars {
             }
         }
 
+                public string LocalAdress
+        {
+            get => Settings.Default.LocalAdress;
+            set
+            {
+                Settings.Default.LocalAdress = value;
+                NINA.Core.Utility.CoreUtil.SaveSettings(Settings.Default);
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LocalAdress)));
+            }
+        }
+
+        public string LocalNetworkAdress
+        {
+            get => Settings.Default.LocalNetworkAdress;
+            set
+            {
+                Settings.Default.LocalNetworkAdress = value;
+                NINA.Core.Utility.CoreUtil.SaveSettings(Settings.Default);
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LocalNetworkAdress)));
+            }
+        }
+
+        public string HostAdress
+        {
+            get => Settings.Default.HostAdress;
+            set
+            {
+                Settings.Default.HostAdress = value;
+                NINA.Core.Utility.CoreUtil.SaveSettings(Settings.Default);
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HostAdress)));
+            }
+        }
+
+        private void SetHostNames()
+        {
+            Dictionary<string, string> dict = CoreUtility.GetLocalNames();
+
+            LocalAdress = $"http://{dict["LOCALHOST"]}:{Port}/api";
+            LocalNetworkAdress = $"http://{dict["IPADRESS"]}:{Port}/api";
+            HostAdress = $"http://{dict["HOSTNAME"]}:{Port}/api";
+        }
         public event PropertyChangedEventHandler PropertyChanged;
         protected void RaisePropertyChanged([CallerMemberName] string propertyName = null) {
             this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

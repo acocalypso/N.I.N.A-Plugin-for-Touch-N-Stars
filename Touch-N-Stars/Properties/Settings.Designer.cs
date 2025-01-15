@@ -58,5 +58,41 @@ namespace TouchNStars.Properties {
                 this["Port"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string LocalAdress {
+            get {
+                return ((string)(this["LocalAdress"]));
+            }
+            set {
+                this["LocalAdress"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string LocalNetworkAdress {
+            get {
+                return ((string)(this["LocalNetworkAdress"]));
+            }
+            set {
+                this["LocalNetworkAdress"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string HostAdress {
+            get {
+                return ((string)(this["HostAdress"]));
+            }
+            set {
+                this["HostAdress"] = value;
+            }
+        }
     }
 }
