@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
 
 namespace TouchNStars.Utility;
 
@@ -39,4 +42,44 @@ public static class CoreUtility {
         string content = reader.ReadToEnd();
         return content;
     }
+           
+    public static Dictionary<string, string> GetLocalNames() {
+        return lazyNames.Value;
+    }
+
+    private static readonly Lazy<Dictionary<string, string>> lazyNames = new Lazy<Dictionary<string, string>>(() =>
+        {
+            var names = new Dictionary<string, string>()
+            {
+                { "LOCALHOST", "localhost" }
+            };
+
+            string hostName = Dns.GetHostName();
+            if (!string.IsNullOrEmpty(hostName))
+            {
+                names.Add("HOSTNAME", hostName);
+            }
+
+            string ipv4 = GetIPv4Address();
+            if (!string.IsNullOrEmpty(ipv4))
+            {
+                names.Add("IPADRESS", ipv4);
+            }
+
+            return names;
+        });
+
+        public static string GetIPv4Address()
+        {
+            IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    return ip.ToString();
+                }
+            }
+            return null;
+        }
 }
