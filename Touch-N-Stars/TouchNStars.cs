@@ -142,9 +142,9 @@ namespace TouchNStars {
         private void SetHostNames() {
             Dictionary<string, string> dict = CoreUtility.GetLocalNames();
 
-            LocalAdress = $"http://{dict["LOCALHOST"]}:{Port}/api";
-            LocalNetworkAdress = $"http://{dict["IPADRESS"]}:{Port}/api";
-            HostAdress = $"http://{dict["HOSTNAME"]}:{Port}/api";
+            LocalAdress = $"http://{dict["LOCALHOST"]}:{Port}/";
+            LocalNetworkAdress = $"http://{dict["IPADRESS"]}:{Port}/";
+            HostAdress = $"http://{dict["HOSTNAME"]}:{Port}/";
         }
         public event PropertyChangedEventHandler PropertyChanged;
         protected void RaisePropertyChanged([CallerMemberName] string propertyName = null) {
