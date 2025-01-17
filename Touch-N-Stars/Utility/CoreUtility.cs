@@ -3,16 +3,20 @@ using System.IO;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading.Tasks;
 
 namespace TouchNStars.Utility;
 
 public static class CoreUtility {
-    public const string BASE_API_URL = "http://localhost:1888/v2/api";
-
     public static readonly string CachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "FramingAssistantCache");
     public static readonly string LogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "Logs");
     public static readonly string AfPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "AutoFocus");
     public static readonly string Hips2FitsUrl = "http://alaskybis.u-strasbg.fr/hips-image-services/hips2fits";
+
+    public static async Task<string> GetApiUrl() {
+        await TouchNStars.Communicator.GetPort();
+        return $"http://localhost:{Communicator.FoundPort}/v2/api";
+    }
 
     public static double HmsToDegrees(string hms) {
         string[] hmsParts = hms.Split(':');

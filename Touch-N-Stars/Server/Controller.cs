@@ -122,7 +122,7 @@ public class Controller : WebApiController {
 
     [Route(HttpVerbs.Get, "/autofocus/{action}")]
     public async Task<object> ControlAutofocus(string action) {
-        string targetUrl = $"{CoreUtility.BASE_API_URL}/equipment/focuser/auto-focus";
+        string targetUrl = $"{CoreUtility.GetApiUrl()}/equipment/focuser/auto-focus";
         bool info = action.Equals("info");
         bool start = action.Equals("start");
         bool stop = action.Equals("stopp");

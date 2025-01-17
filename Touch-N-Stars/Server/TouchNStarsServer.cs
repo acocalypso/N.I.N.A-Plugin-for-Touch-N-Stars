@@ -11,6 +11,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using TouchNStars.Properties;
+using System.Threading.Tasks;
 
 namespace TouchNStars.Server {
     public class TouchNStarsServer {
@@ -27,11 +28,7 @@ namespace TouchNStars.Server {
             WebServer = new WebServer(o => o
                 .WithUrlPrefix($"http://*:{Settings.Default.Port}")
                 .WithMode(HttpListenerMode.EmbedIO))
-                .WithCors(
-                    "http://tauri.localhost", // Allow this origin
-                    "content-type,authorization", // Allowed headers
-                    "GET,POST,PUT,DELETE,OPTIONS" // Allowed methods
-                );
+                .WithModule(new CustomHeaderModule());
 
             foreach (string endPoint in appEndPoints) {
                 WebServer = WebServer.WithModule(new RedirectModule("/" + endPoint, "/")); // redirect all reloads of the app to the root
@@ -85,5 +82,21 @@ namespace TouchNStars.Server {
                 Notification.ShowError($"Failed to start web server, see NINA log for details");
             }
         }
+    }
+
+    internal class CustomHeaderModule : WebModuleBase {
+        internal CustomHeaderModule() : base("/") {
+        }
+
+        protected override Task OnRequestAsync(IHttpContext context) {
+            if (Settings.Default.UseAccessHeader) {
+                context.Response.Headers.Add("Access-Control-Allow-Origin", "http://tauri.localhost");
+                context.Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+                context.Response.Headers.Add("Access-Control-Allow-Headers", "content-type,authorization");
+            }
+            return Task.CompletedTask;
+        }
+
+        public override bool IsFinalHandler => false;
     }
 }
