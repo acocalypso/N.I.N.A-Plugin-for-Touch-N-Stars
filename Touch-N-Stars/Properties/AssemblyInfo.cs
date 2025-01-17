@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 
 // [MANDATORY] The assembly versioning
 //Should be incremented for each new release build of a plugin
-[assembly: AssemblyVersion("1.0.0.4")]
-[assembly: AssemblyFileVersion("1.0.0.4")]
+[assembly: AssemblyVersion("1.0.0.5")]
+[assembly: AssemblyFileVersion("1.0.0.5")]
 
 // [MANDATORY] The name of your plugin
 [assembly: AssemblyTitle("Touch 'N' Stars")]
@@ -52,8 +52,8 @@ using System.Runtime.InteropServices;
 //[Optional] An in-depth description of your plugin
 [assembly: AssemblyMetadata("LongDescription", @"# Touch'N'Stars: WebApp for Mobile Control of NINA
 
-## 🚀 **Current Status: Beta Version**  
-**Android Build:** Available at [GitHub Releases](https://github.com/Touch-N-Stars/Touch-N-Stars/releases)
+## **Android Build:**
+Available at [GitHub Releases](https://github.com/Touch-N-Stars/Touch-N-Stars/releases)
 
 This web application is in **development phase** and is aimed at astronomy enthusiasts who want to conveniently set up their equipment using the **NINA** (Nighttime Imaging 'N' Astronomy) software via touch devices.
 
