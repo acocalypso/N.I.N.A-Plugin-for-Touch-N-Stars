@@ -97,7 +97,7 @@ namespace TouchNStars.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool UseAccessHeader {
             get {
                 return ((bool)(this["UseAccessHeader"]));
