@@ -89,10 +89,14 @@ namespace TouchNStars.Server {
         }
 
         protected override Task OnRequestAsync(IHttpContext context) {
+
+            context.Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+            context.Response.Headers.Add("Access-Control-Allow-Headers", "content-type,authorization");
+
             if (Settings.Default.UseAccessHeader) {
+                context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+            } else {
                 context.Response.Headers.Add("Access-Control-Allow-Origin", "http://tauri.localhost");
-                context.Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-                context.Response.Headers.Add("Access-Control-Allow-Headers", "content-type,authorization");
             }
             return Task.CompletedTask;
         }
