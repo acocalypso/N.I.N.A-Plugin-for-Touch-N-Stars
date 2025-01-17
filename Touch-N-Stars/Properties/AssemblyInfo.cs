@@ -64,7 +64,6 @@ The application aims to make controlling and adjusting already configured profil
 - This web app **requires a fully configured and running installation of NINA**.
 - It requires the **Advanced API** plugin in the latest beta version with the following settings:
   - API v2 must be enabled
-  - Port must be set to 1888
   - ""Use Access-Control-Allow-Origin Header"" must be enabled
 - For Three Point Polar Alignment, version 2.2.2.0 or newer is required.
 - It is intended as a complement to the desktop software and provides mobile support for basic functions.
@@ -73,7 +72,7 @@ The application aims to make controlling and adjusting already configured profil
 ## 🔧 **Installation**
 - After installing the plugin, Touch'N'Stars can be accessed via http://<NINA - PC - IP>:5000.
 
-## 🧪 **What does the Alpha Version offer?**  
+## 🧪 **What does the Beta Version offer?**  
 - **Mobile Operation**: Easily access NINA through your smartphone or tablet.
 - **User-Friendly Design**: Simple and intuitive interface specifically optimized for mobile devices.
 - **Focus on Practicality**: Support for essential steps in setting up your equipment.
