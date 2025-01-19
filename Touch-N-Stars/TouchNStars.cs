@@ -37,6 +37,7 @@ namespace TouchNStars {
     [Export(typeof(IPluginManifest))]
     public class TouchNStars : PluginBase, INotifyPropertyChanged {
         private TouchNStarsServer server;
+        private Proxy proxy;
 
         public static Mediators Mediators { get; private set; }
         public static string PluginId { get; private set; }
@@ -58,6 +59,8 @@ namespace TouchNStars {
             Communicator = new Communicator();
 
             SetHostNames();
+            proxy = new Proxy();
+            proxy.Start();
 
             if (AppEnabled) {
                 server = new TouchNStarsServer();
@@ -66,6 +69,7 @@ namespace TouchNStars {
         }
 
         public override Task Teardown() {
+            proxy.Stop();
             server.Stop();
             Communicator.Dispose();
             return base.Teardown();
