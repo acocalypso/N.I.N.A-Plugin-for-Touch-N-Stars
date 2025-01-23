@@ -49,7 +49,6 @@ namespace TouchNStars.Server {
                     // serverThread.SetApartmentState(ApartmentState.STA);
                     serverThread.Start();
                     BackgroundWorker.MonitorLastAF();
-                    BackgroundWorker.ObserveGuider();
                     BackgroundWorker.MonitorLogForEvents();
                 }
             } catch (Exception ex) {
