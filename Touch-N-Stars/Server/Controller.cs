@@ -191,6 +191,71 @@ public class Controller : WebApiController {
         return new Dictionary<string, object>() { { "error", "Ungültige Anfrage" } };
     }
 
+    [Route(HttpVerbs.Get, "/guider/{action}")]
+    public async Task<object> ControlGuider(string action) {
+        string targetUrl = $"{await CoreUtility.GetApiUrl()}/equipment/guider/";
+        bool info = action.Equals("info");
+        bool start = action.Equals("start");
+        bool stop = action.Equals("stop");
+
+        if (info) {
+            return new Dictionary<string, object>() {
+                { "isGuiding", DataContainer.isGuiding },
+                { "isDithering", DataContainer.isDithering },
+
+            };
+        }
+        if (start) {
+            try {
+                HttpClient client = new HttpClient();
+                HttpResponseMessage response = await client.GetAsync(targetUrl + "start");
+
+                if (response.IsSuccessStatusCode) {
+                    ApiResponse apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse>();
+                    if (apiResponse.Success) {
+                        Logger.Info($"isGuiding wird gesetzt: {DataContainer.isGuiding}");
+                        DataContainer.isGuiding = true;
+                        return new Dictionary<string, object>() { { "message", "Guider start" } };
+                    } else {
+                        return new Dictionary<string, object>() { { "message", $"Error Guider start: {apiResponse.Error}" } };
+                    }
+                } else {
+                    return new Dictionary<string, object>() { { "message", $"Error Guider start: {response.StatusCode}" } };
+                }
+            } catch (Exception ex) {
+                Logger.Error(ex);
+                HttpContext.Response.StatusCode = 500;
+                return new Dictionary<string, object>() { { "error", "Error Guider start" } };
+            }
+        }
+
+        if (stop) {
+
+            try {
+                HttpClient client = new HttpClient();
+                HttpResponseMessage response = await client.GetAsync(targetUrl + "stop");
+
+                if (response.IsSuccessStatusCode) {
+                    ApiResponse apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse>();
+                    if (apiResponse.Success) {
+                        DataContainer.isGuiding = false;
+                        return new Dictionary<string, object>() { { "message", "Guider stop" } };
+                    } else {
+                        return new Dictionary<string, object>() { { "message", $"Error Guider stop: {apiResponse.Error}" } };
+                    }
+                } else {
+                    return new Dictionary<string, object>() { { "message", $"Error Guider stop: {response.StatusCode}" } };
+                }
+            } catch (Exception ex) {
+                Logger.Error(ex);
+                HttpContext.Response.StatusCode = 500;
+                return new Dictionary<string, object>() { { "error", "Error Guider stop" } };
+            }
+        }
+
+        return new Dictionary<string, object>() { { "error", "Invalid request" } };
+    }
+
     [Route(HttpVerbs.Get, "/guider-data")]
     public object GetGuiderData() {
         lock (DataContainer.lockObj) {

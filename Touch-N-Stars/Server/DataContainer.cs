@@ -12,4 +12,6 @@ internal static class DataContainer {
     internal static DateTime lastAfTimestamp = DateTime.MinValue;
     internal static bool wshvActive = false;
     internal static int wshvPort = 80;
+    internal static bool isGuiding = false;
+    internal static bool isDithering = false;
 }
