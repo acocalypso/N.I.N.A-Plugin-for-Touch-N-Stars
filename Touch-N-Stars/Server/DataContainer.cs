@@ -3,8 +3,6 @@ using TouchNStars.Server;
 
 internal static class DataContainer {
     internal static object lockObj = new object();
-
-    internal static GuiderData guiderData = new GuiderData();
     internal static bool afRun = false;
     internal static bool afError = false;
     internal static string afErrorText = string.Empty;

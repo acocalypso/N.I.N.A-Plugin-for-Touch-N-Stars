@@ -17,25 +17,6 @@ using TouchNStars.Utility;
 
 namespace TouchNStars.Server;
 
-public class GuiderData {
-    public List<double> RADistanceRaw { get; set; }
-    public List<double> DECDistanceRaw { get; set; }
-
-    public GuiderData() {
-        RADistanceRaw = new List<double>();
-        DECDistanceRaw = new List<double>();
-    }
-
-    public void AddValues(double ra, double dec, int limit = 50) {
-        if (RADistanceRaw.Count >= limit) {
-            RADistanceRaw.RemoveAt(0);
-            DECDistanceRaw.RemoveAt(0);
-        }
-        RADistanceRaw.Add(ra);
-        DECDistanceRaw.Add(dec);
-    }
-}
-
 public class NGCSearchResult {
     public string Name { get; set; }
     public double RA { get; set; }
@@ -189,13 +170,6 @@ public class Controller : WebApiController {
         }
 
         return new Dictionary<string, object>() { { "error", "Ungültige Anfrage" } };
-    }
-
-    [Route(HttpVerbs.Get, "/guider-data")]
-    public object GetGuiderData() {
-        lock (DataContainer.lockObj) {
-            return DataContainer.guiderData;
-        }
     }
 
     [Route(HttpVerbs.Get, "/ngc/search")]

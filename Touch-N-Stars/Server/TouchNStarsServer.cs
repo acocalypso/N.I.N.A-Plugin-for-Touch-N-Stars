@@ -19,7 +19,7 @@ namespace TouchNStars.Server {
         private CancellationTokenSource apiToken;
         public WebServer WebServer;
 
-        private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings", "seq-mon", "flat", "dome", "logs"];
+        private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings", "seq-mon", "flat", "dome", "logs", "switch"];
 
         public void CreateServer() {
             string assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -49,7 +49,6 @@ namespace TouchNStars.Server {
                     // serverThread.SetApartmentState(ApartmentState.STA);
                     serverThread.Start();
                     BackgroundWorker.MonitorLastAF();
-                    BackgroundWorker.ObserveGuider();
                     BackgroundWorker.MonitorLogForEvents();
                 }
             } catch (Exception ex) {

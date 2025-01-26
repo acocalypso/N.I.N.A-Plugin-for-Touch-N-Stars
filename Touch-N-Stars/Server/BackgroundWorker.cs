@@ -66,20 +66,6 @@ internal static class BackgroundWorker {
             afWatcher.Changed -= OnAFFileChanged;
             afWatcher.Dispose();
             afWatcher = null;
-            TouchNStars.TouchNStars.Mediators.Guider.GuideEvent -= Guider_GuideEvent;
-        }
-    }
-
-    public static void ObserveGuider() {
-        TouchNStars.TouchNStars.Mediators.Guider.GuideEvent += Guider_GuideEvent;
-    }
-
-    private static void Guider_GuideEvent(object sender, IGuideStep e) {
-        double raDistance = Math.Round((double)e.RADistanceRaw * (double)TouchNStars.TouchNStars.Mediators.Guider.GetInfo().PixelScale, 2);
-        double decDistance = Math.Round((double)e.DECDistanceRaw * (double)TouchNStars.TouchNStars.Mediators.Guider.GetInfo().PixelScale, 2);
-
-        lock (DataContainer.lockObj) {
-            DataContainer.guiderData.AddValues(raDistance, decDistance);
         }
     }
 
