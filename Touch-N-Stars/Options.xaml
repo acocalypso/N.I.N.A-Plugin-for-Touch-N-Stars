@@ -37,8 +37,6 @@
                         <Run FontStyle="Italic" Text="Without this permission, browsers block requests from other domains for security reasons." />
                         <LineBreak />
                         <Run FontStyle="Italic" Text="This is only relevant if the software is accessible via the Internet – in closed networks, such attacks from the outside are not possible." />
-                        <LineBreak />
-                        <Run FontStyle="Italic" Text="I'll write the text like this." />
                     </TextBlock.Inlines>
                 </TextBlock>
             </StackPanel>
