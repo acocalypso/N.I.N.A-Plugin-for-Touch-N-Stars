@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 
 // [MANDATORY] The assembly versioning
 //Should be incremented for each new release build of a plugin
-[assembly: AssemblyVersion("1.0.0.6")]
-[assembly: AssemblyFileVersion("1.0.0.6")]
+[assembly: AssemblyVersion("1.0.0.8")]
+[assembly: AssemblyFileVersion("1.0.0.8")]
 
 // [MANDATORY] The name of your plugin
 [assembly: AssemblyTitle("Touch 'N' Stars")]
@@ -41,7 +41,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyMetadata("Tags", "Web,App")]
 
 //[Optional] A link that will show a log of all changes in between your plugin's versions
-[assembly: AssemblyMetadata("ChangelogURL", "https://github.com/Touch-N-Stars/N.I.N.A-Plugin-for-Touch-N-Stars/blob/main/CHANGELOG.md")]
+[assembly: AssemblyMetadata("ChangelogURL", "https://raw.githubusercontent.com/Touch-N-Stars/Touch-N-Stars/refs/heads/master/CHANGELOG.md")]
 
 //[Optional] The url to a featured logo that will be displayed in the plugin list next to the name
 [assembly: AssemblyMetadata("FeaturedImageURL", "https://github.com/Touch-N-Stars/Touch-N-Stars/blob/master/Logo/Logo_TouchNStars.png?raw=true")]
