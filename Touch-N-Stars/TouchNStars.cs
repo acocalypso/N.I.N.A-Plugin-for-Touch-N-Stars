@@ -37,7 +37,6 @@ namespace TouchNStars {
     [Export(typeof(IPluginManifest))]
     public class TouchNStars : PluginBase, INotifyPropertyChanged {
         private TouchNStarsServer server;
-        private Proxy proxy;
 
         public static Mediators Mediators { get; private set; }
         public static string PluginId { get; private set; }
@@ -46,7 +45,12 @@ namespace TouchNStars {
 
 
         [ImportingConstructor]
-        public TouchNStars(IProfileService profileService, IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IImageDataFactory imageDataFactory, IFramingAssistantVM framingAssistantVM, IGuiderMediator guider, IMessageBroker broker) {
+        public TouchNStars(IProfileService profileService,
+                    IDeepSkyObjectSearchVM DeepSkyObjectSearchVM,
+                    IImageDataFactory imageDataFactory,
+                    IFramingAssistantVM framingAssistantVM,
+                    IGuiderMediator guider,
+                    IMessageBroker broker) {
             if (Settings.Default.UpdateSettings) {
                 Settings.Default.Upgrade();
                 Settings.Default.UpdateSettings = false;
@@ -54,13 +58,16 @@ namespace TouchNStars {
             }
 
             PluginId = this.Identifier;
-            Mediators = new Mediators(DeepSkyObjectSearchVM, imageDataFactory, framingAssistantVM, profileService, guider, broker);
+            Mediators = new Mediators(DeepSkyObjectSearchVM,
+                            imageDataFactory,
+                            framingAssistantVM,
+                            profileService,
+                            guider,
+                            broker);
 
             Communicator = new Communicator();
 
             SetHostNames();
-            proxy = new Proxy();
-            proxy.Start();
 
             if (AppEnabled) {
                 server = new TouchNStarsServer();
@@ -69,7 +76,6 @@ namespace TouchNStars {
         }
 
         public override Task Teardown() {
-            proxy.Stop();
             server.Stop();
             Communicator.Dispose();
             return base.Teardown();
