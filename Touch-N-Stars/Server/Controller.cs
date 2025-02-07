@@ -94,13 +94,6 @@ public class Controller : WebApiController {
         return logs;
     }
 
-    [Route(HttpVerbs.Get, "/wshv")]
-    public object GetWshvData() {
-        lock (DataContainer.lockObj) {
-            return new Dictionary<string, object>() { { "wshvActive", DataContainer.wshvActive }, { "wshvPort", DataContainer.wshvPort } };
-        }
-    }
-
     [Route(HttpVerbs.Get, "/autofocus/{action}")]
     public async Task<object> ControlAutofocus(string action) {
         string targetUrl = $"{await CoreUtility.GetApiUrl()}/equipment/focuser/auto-focus";
@@ -197,7 +190,8 @@ public class Controller : WebApiController {
         try {
             HttpContext.Response.ContentType = "image/jpeg";
             if (useCache) {
-                CacheSkySurveyImageFactory factory = new CacheSkySurveyImageFactory(width, height, new CacheSkySurvey(CoreUtility.CachePath));
+                string framingCache = TouchNStars.Mediators.Profile.ActiveProfile.ApplicationSettings.SkySurveyCacheDirectory;
+                CacheSkySurveyImageFactory factory = new CacheSkySurveyImageFactory(width, height, new CacheSkySurvey(framingCache));
                 BitmapSource source = factory.Render(new Coordinates(Angle.ByDegree(ra), Angle.ByDegree(dec), Epoch.J2000), fov, 0);
 
                 JpegBitmapEncoder encoder = new JpegBitmapEncoder();

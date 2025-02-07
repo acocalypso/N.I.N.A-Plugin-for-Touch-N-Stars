@@ -45,7 +45,12 @@ namespace TouchNStars {
 
 
         [ImportingConstructor]
-        public TouchNStars(IProfileService profileService, IDeepSkyObjectSearchVM DeepSkyObjectSearchVM, IImageDataFactory imageDataFactory, IFramingAssistantVM framingAssistantVM, IGuiderMediator guider, IMessageBroker broker) {
+        public TouchNStars(IProfileService profileService,
+                    IDeepSkyObjectSearchVM DeepSkyObjectSearchVM,
+                    IImageDataFactory imageDataFactory,
+                    IFramingAssistantVM framingAssistantVM,
+                    IGuiderMediator guider,
+                    IMessageBroker broker) {
             if (Settings.Default.UpdateSettings) {
                 Settings.Default.Upgrade();
                 Settings.Default.UpdateSettings = false;
@@ -53,7 +58,12 @@ namespace TouchNStars {
             }
 
             PluginId = this.Identifier;
-            Mediators = new Mediators(DeepSkyObjectSearchVM, imageDataFactory, framingAssistantVM, profileService, guider, broker);
+            Mediators = new Mediators(DeepSkyObjectSearchVM,
+                            imageDataFactory,
+                            framingAssistantVM,
+                            profileService,
+                            guider,
+                            broker);
 
             Communicator = new Communicator();
 

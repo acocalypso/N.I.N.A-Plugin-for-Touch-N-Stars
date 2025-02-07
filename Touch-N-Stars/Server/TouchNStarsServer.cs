@@ -1,8 +1,6 @@
 using EmbedIO;
 using EmbedIO.Actions;
-using EmbedIO.Files;
 using EmbedIO.WebApi;
-using EmbedIO.Cors;
 using NINA.Core.Utility;
 using NINA.Core.Utility.Notification;
 using System;
@@ -46,9 +44,7 @@ namespace TouchNStars.Server {
                     serverThread = new Thread(() => APITask(WebServer)) {
                         Name = "Touch-N-Stars API Thread"
                     };
-                    // serverThread.SetApartmentState(ApartmentState.STA);
                     serverThread.Start();
-                    BackgroundWorker.MonitorLastAF();
                     BackgroundWorker.MonitorLogForEvents();
                 }
             } catch (Exception ex) {
