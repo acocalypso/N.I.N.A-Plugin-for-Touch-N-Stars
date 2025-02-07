@@ -9,7 +9,7 @@ using TouchNStars.Utility;
 
 internal static class BackgroundWorker {
     private static int lastLine = 0;
-    private static FileSystemWatcher watcher;  // Add static field
+    private static FileSystemWatcher watcher;
     private static FileSystemWatcher afWatcher;
 
     public static void MonitorLogForEvents() {
@@ -62,6 +62,9 @@ internal static class BackgroundWorker {
             watcher.Changed -= OnLogFileChanged;
             watcher.Dispose();
             watcher = null;
+        }
+        
+        if (afWatcher != null) {
             afWatcher.EnableRaisingEvents = false;
             afWatcher.Changed -= OnAFFileChanged;
             afWatcher.Dispose();
@@ -78,15 +81,55 @@ internal static class BackgroundWorker {
     }
 
     private static void OnAFFileChanged(object sender, FileSystemEventArgs e) {
-        if (e.ChangeType == WatcherChangeTypes.Created && e.FullPath.EndsWith(".json")) {
-            Logger.Info("Found new AF report: " + e.FullPath);
-            string content = CoreUtility.SafeRead(e.FullPath);
-            AutoFocusReport report = JsonConvert.DeserializeObject<AutoFocusReport>(content);
-            if (report.Timestamp > DataContainer.lastAfTimestamp) {
-                DataContainer.lastAfTimestamp = report.Timestamp;
-                DataContainer.afRun = false;
-                DataContainer.newAfGraph = true;
+        try {
+            if (e == null || string.IsNullOrEmpty(e.FullPath)) {
+                Logger.Error("Invalid file system event received");
+                return;
             }
+
+            if (e.ChangeType == WatcherChangeTypes.Created && e.FullPath.EndsWith(".json")) {
+                Logger.Info("Found new AF report: " + e.FullPath);
+                
+                // Add retry logic for file access
+                string content = null;
+                for (int i = 0; i < 3; i++) {
+                    try {
+                        content = CoreUtility.SafeRead(e.FullPath);
+                        if (!string.IsNullOrEmpty(content)) break;
+                        System.Threading.Thread.Sleep(100); // Wait briefly before retry
+                    }
+                    catch (IOException ex) {
+                        Logger.Warning($"Attempt {i + 1} to read AF file failed: {ex.Message}");
+                        if (i == 2) throw; // Rethrow on final attempt
+                    }
+                }
+
+                if (string.IsNullOrEmpty(content)) {
+                    Logger.Error("Unable to read AF report content");
+                    return;
+                }
+
+                try {
+                    AutoFocusReport report = JsonConvert.DeserializeObject<AutoFocusReport>(content);
+                    if (report == null) {
+                        Logger.Error("Failed to deserialize AF report");
+                        return;
+                    }
+
+                    if (report.Timestamp > DataContainer.lastAfTimestamp) {
+                        DataContainer.lastAfTimestamp = report.Timestamp;
+                        DataContainer.afRun = false;
+                        DataContainer.newAfGraph = true;
+                    }
+                }
+                catch (JsonException ex) {
+                    Logger.Error($"Failed to parse AF report: {ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex) {
+            Logger.Error($"Error processing AF file change: {ex.Message}");
+            // Don't rethrow - we want to handle all errors gracefully
         }
     }
 }
