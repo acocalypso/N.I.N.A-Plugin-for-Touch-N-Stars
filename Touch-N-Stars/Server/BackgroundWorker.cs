@@ -38,6 +38,9 @@ internal static class BackgroundWorker {
                     if (parts.Length >= 6) {
                         DataContainer.afErrorText = parts[5].Trim();
                     }
+                } else if (line.Contains("|BroadcastSuccessfulAutoFocusRun|")) {
+                    DataContainer.afRun = false;
+                    DataContainer.afError = false;
                 }
             }
         } catch (Exception ex) {
