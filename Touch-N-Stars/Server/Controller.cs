@@ -185,6 +185,60 @@ public class Controller : WebApiController {
         return results;
     }
 
+    [Route(HttpVerbs.Get, "/system/shutdown")]
+    public object SystemShutdown() {
+        try {
+            var process = new System.Diagnostics.Process {
+                StartInfo = new System.Diagnostics.ProcessStartInfo {
+                    FileName = "shutdown.exe",
+                    Arguments = "/s /t 0",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            
+            return new Dictionary<string, object>() {
+                { "success", true },
+                { "message", "System shutdown initiated" }
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new Dictionary<string, object>() {
+                { "success", false },
+                { "error", ex.Message }
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/system/restart")]
+    public object SystemRestart() {
+        try {
+            var process = new System.Diagnostics.Process {
+                StartInfo = new System.Diagnostics.ProcessStartInfo {
+                    FileName = "shutdown.exe",
+                    Arguments = "/r /t 0",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            
+            return new Dictionary<string, object>() {
+                { "success", true },
+                { "message", "System restart initiated" }
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new Dictionary<string, object>() {
+                { "success", false },
+                { "error", ex.Message }
+            };
+        }
+    }
+
     [Route(HttpVerbs.Get, "/targetpic")]
     public async Task FetchTargetPicture([QueryField(true)] int width, [QueryField(true)] int height, [QueryField(true)] double fov, [QueryField(true)] double ra, [QueryField(true)] double dec, [QueryField] bool useCache) {
         try {
