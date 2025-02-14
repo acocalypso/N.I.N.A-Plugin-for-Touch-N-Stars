@@ -17,7 +17,7 @@ namespace TouchNStars.Server {
         private CancellationTokenSource apiToken;
         public WebServer WebServer;
 
-        private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings", "seq-mon", "flat", "dome", "logs", "switch"];
+        private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings", "seq-mon", "flat", "dome", "logs", "switch", "flats"];
 
         public void CreateServer() {
             string assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
