@@ -91,7 +91,7 @@ namespace TouchNStars.Server {
             if (Settings.Default.UseAccessHeader) {
                 context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
             } else {
-                context.Response.Headers.Add("Access-Control-Allow-Origin", "http://tauri.localhost");
+                context.Response.Headers.Add("Access-Control-Allow-Origin", "http://localhost");
             }
             return Task.CompletedTask;
         }
