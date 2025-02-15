@@ -191,7 +191,7 @@ public class Controller : WebApiController {
             var process = new System.Diagnostics.Process {
                 StartInfo = new System.Diagnostics.ProcessStartInfo {
                     FileName = "shutdown.exe",
-                    Arguments = "/s /t 0",
+                    Arguments = "/f /s /t 0",
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
