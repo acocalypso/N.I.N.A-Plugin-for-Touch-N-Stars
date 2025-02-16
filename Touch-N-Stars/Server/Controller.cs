@@ -190,8 +190,8 @@ public class Controller : WebApiController {
         try {
             var process = new System.Diagnostics.Process {
                 StartInfo = new System.Diagnostics.ProcessStartInfo {
-                    FileName = "shutdown.exe",
-                    Arguments = "/f /s /t 0",
+                    FileName = "powershell",
+                    Arguments = "-Command \"Stop-Computer -Force\"",
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
@@ -217,8 +217,8 @@ public class Controller : WebApiController {
         try {
             var process = new System.Diagnostics.Process {
                 StartInfo = new System.Diagnostics.ProcessStartInfo {
-                    FileName = "shutdown.exe",
-                    Arguments = "/r /t 0",
+                    FileName = "powershell",
+                    Arguments = "-Command \"Restart-Computer -Force\"",
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
