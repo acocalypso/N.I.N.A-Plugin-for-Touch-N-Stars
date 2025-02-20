@@ -1,4 +1,7 @@
+using Newtonsoft.Json;
+using NINA.Core.Interfaces;
 using NINA.Core.Utility;
+using NINA.WPF.Base.Utility.AutoFocus;
 using System;
 using System.IO;
 using System.Linq;
@@ -7,6 +10,7 @@ using TouchNStars.Utility;
 internal static class BackgroundWorker {
     private static int lastLine = 0;
     private static FileSystemWatcher watcher;
+    private static FileSystemWatcher afWatcher;
 
     public static void MonitorLogForEvents() {
         if (watcher != null) return;  // Prevent multiple instances
@@ -39,12 +43,6 @@ internal static class BackgroundWorker {
                         DataContainer.afErrorText = parts[5].Trim();
                     }
                 } 
-                else if (line.Contains("|BroadcastSuccessfulAutoFocusRun|")
-                 || line.Contains("|Autofocus notification received"))
-                {
-                    DataContainer.afRun = false;
-                    DataContainer.afError = false;
-                }
             }
         } catch (Exception ex) {
             Logger.Error($"Error processing log file: {ex.Message}");
@@ -57,6 +55,31 @@ internal static class BackgroundWorker {
             watcher.Changed -= OnLogFileChanged;
             watcher.Dispose();
             watcher = null;
+            afWatcher.EnableRaisingEvents = false;
+            afWatcher.Changed -= OnAFFileChanged;
+            afWatcher.Dispose();
+            afWatcher = null;
+        }
+    }
+
+    public static void MonitorLastAF() {
+        if (afWatcher != null) return;  // Prevent multiple instances
+
+        afWatcher = new FileSystemWatcher(CoreUtility.AfPath);
+        afWatcher.EnableRaisingEvents = true; // Enable the watcher
+        afWatcher.Created += OnAFFileChanged;
+    }
+
+    private static void OnAFFileChanged(object sender, FileSystemEventArgs e) {
+        if (e.ChangeType == WatcherChangeTypes.Created && e.FullPath.EndsWith(".json")) {
+            Logger.Info("Found new AF report: " + e.FullPath);
+            string content = CoreUtility.SafeRead(e.FullPath);
+            AutoFocusReport report = JsonConvert.DeserializeObject<AutoFocusReport>(content);
+            if (report.Timestamp > DataContainer.lastAfTimestamp) {
+                DataContainer.lastAfTimestamp = report.Timestamp;
+                DataContainer.afRun = false;
+                DataContainer.newAfGraph = true;
+            }
         }
     }
 }
