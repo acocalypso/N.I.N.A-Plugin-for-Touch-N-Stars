@@ -1,7 +1,5 @@
-using Newtonsoft.Json;
-using NINA.Core.Interfaces;
+
 using NINA.Core.Utility;
-using NINA.WPF.Base.Utility.AutoFocus;
 using System;
 using System.IO;
 using System.Linq;
@@ -71,15 +69,15 @@ internal static class BackgroundWorker {
     }
 
     private static void OnAFFileChanged(object sender, FileSystemEventArgs e) {
+        if (e == null || string.IsNullOrEmpty(e.FullPath)) {
+            Logger.Error("Invalid file system event received");
+            return;
+        }
         if (e.ChangeType == WatcherChangeTypes.Created && e.FullPath.EndsWith(".json")) {
             Logger.Info("Found new AF report: " + e.FullPath);
-            string content = CoreUtility.SafeRead(e.FullPath);
-            AutoFocusReport report = JsonConvert.DeserializeObject<AutoFocusReport>(content);
-            if (report.Timestamp > DataContainer.lastAfTimestamp) {
-                DataContainer.lastAfTimestamp = report.Timestamp;
-                DataContainer.afRun = false;
-                DataContainer.newAfGraph = true;
-            }
+
+            DataContainer.afRun = false;
+            DataContainer.newAfGraph = true;
         }
     }
 }
