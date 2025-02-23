@@ -7,5 +7,4 @@ internal static class DataContainer {
     internal static bool afError = false;
     internal static string afErrorText = string.Empty;
     internal static bool newAfGraph = false;
-    internal static DateTime lastAfTimestamp = DateTime.MinValue;
 }
