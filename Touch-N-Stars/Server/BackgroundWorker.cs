@@ -53,18 +53,28 @@ internal static class BackgroundWorker {
             watcher.Changed -= OnLogFileChanged;
             watcher.Dispose();
             watcher = null;
+        }
+
+        if (afWatcher != null) {
             afWatcher.EnableRaisingEvents = false;
             afWatcher.Changed -= OnAFFileChanged;
             afWatcher.Dispose();
             afWatcher = null;
         }
     }
-
     public static void MonitorLastAF() {
-        if (afWatcher != null) return;  // Prevent multiple instances
+        if (afWatcher != null) {
+            Logger.Info("MonitorLastAF is already running. Skipping re-initialization.");
+            return;
+        }
+
+        if (!Directory.Exists(CoreUtility.AfPath)) {
+            Logger.Error($"AF-Verzeichnis existiert nicht: {CoreUtility.AfPath}");
+            return;
+        }
 
         afWatcher = new FileSystemWatcher(CoreUtility.AfPath);
-        afWatcher.EnableRaisingEvents = true; // Enable the watcher
+        afWatcher.EnableRaisingEvents = true;
         afWatcher.Created += OnAFFileChanged;
     }
 
@@ -73,9 +83,12 @@ internal static class BackgroundWorker {
             Logger.Error("Invalid file system event received");
             return;
         }
+        if (afWatcher == null) {
+            Logger.Error("afWatcher is null, skipping event processing.");
+            return;
+        }
         if (e.ChangeType == WatcherChangeTypes.Created && e.FullPath.EndsWith(".json")) {
-            Logger.Info("Found new AF report: " + e.FullPath);
-
+            Logger.Info("Found new AF report");
             DataContainer.afRun = false;
             DataContainer.newAfGraph = true;
         }
