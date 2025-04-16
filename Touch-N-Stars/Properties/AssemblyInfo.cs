@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 
 // [MANDATORY] The assembly versioning
 //Should be incremented for each new release build of a plugin
-[assembly: AssemblyVersion("1.0.4.4")]
-[assembly: AssemblyFileVersion("1.0.4.4")]
+[assembly: AssemblyVersion("1.0.5.0")]
+[assembly: AssemblyFileVersion("1.0.5.0")]
 
 // [MANDATORY] The name of your plugin
 [assembly: AssemblyTitle("Touch 'N' Stars")]
@@ -69,6 +69,7 @@ This makes handling more mobile and convenient, especially when setting up equip
 - For Three Point Polar Alignment, version 2.2.2.0 or newer is required.
 - It is intended as a complement to the desktop software and provides mobile support for basic functions.
 - I assume no liability
+- This is a beta version and may still contain errors
 - **more info and a wiki** can be found on the [GitHub](https://github.com/Touch-N-Stars/Touch-N-Stars/)
   
 ## 🔧 **Installation**
