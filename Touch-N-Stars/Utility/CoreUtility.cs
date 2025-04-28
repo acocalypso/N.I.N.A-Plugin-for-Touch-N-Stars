@@ -70,13 +70,16 @@ public static class CoreUtility {
     });
 
     public static string GetIPv4Address() {
-        IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
-
-        foreach (var ip in host.AddressList) {
-            if (ip.AddressFamily == AddressFamily.InterNetwork) {
-                return ip.ToString();
-            }
+        string localIP;
+        try {
+            using Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
+            socket.Connect("8.8.8.8", 65530);
+            IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
+            localIP = endPoint.Address.ToString();
+        } catch (Exception) {
+            localIP = "127.0.0.1";
         }
-        return null;
+
+        return localIP;
     }
 }
