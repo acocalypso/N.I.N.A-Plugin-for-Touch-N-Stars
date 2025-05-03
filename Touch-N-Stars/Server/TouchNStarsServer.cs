@@ -68,8 +68,6 @@ namespace TouchNStars.Server {
 
         // [STAThread]
         private void APITask(WebServer server) {
-            // string ipAdress = CoreUtility.GetLocalNames()["IPADRESS"];
-            // Logger.Info($"starting web server, listening at {ipAdress}:{Port}");
             Logger.Info("Touch-N-Stars Webserver starting");
 
             try {
@@ -90,12 +88,7 @@ namespace TouchNStars.Server {
 
             context.Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
             context.Response.Headers.Add("Access-Control-Allow-Headers", "content-type,authorization");
-
-            if (Settings.Default.UseAccessHeader) {
-                context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-            } else {
-                context.Response.Headers.Add("Access-Control-Allow-Origin", "http://localhost");
-            }
+            context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
             return Task.CompletedTask;
         }
 
