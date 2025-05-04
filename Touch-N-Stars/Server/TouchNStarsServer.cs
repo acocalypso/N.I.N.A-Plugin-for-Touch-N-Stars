@@ -1,7 +1,6 @@
-using EmbedIO;
-using EmbedIO.Actions;
-using EmbedIO.Files;
+﻿using EmbedIO;
 using EmbedIO.WebApi;
+using EmbedIO.Files;
 using EmbedIO.Cors;
 using NINA.Core.Utility;
 using NINA.Core.Utility.Notification;
@@ -10,8 +9,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
-using TouchNStars.Properties;
 using System.Threading.Tasks;
+using TouchNStars.Properties;
+using EmbedIO.Actions;
 
 namespace TouchNStars.Server {
     public class TouchNStarsServer {
@@ -19,22 +19,25 @@ namespace TouchNStars.Server {
         private CancellationTokenSource apiToken;
         public WebServer WebServer;
 
-        private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings", "seq-mon", "flat", "dome", "logs", "switch", "flats", "stellarium"];
+        private readonly List<string> appEndPoints = [
+            "equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings",
+            "seq-mon", "flat", "dome", "logs", "switch", "flats", "stellarium"
+        ];
 
         public void CreateServer() {
             string assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             string webAppDir = Path.Combine(assemblyFolder, "app");
 
             WebServer = new WebServer(o => o
-                .WithUrlPrefix($"http://*:{Settings.Default.Port}")
-                .WithMode(HttpListenerMode.EmbedIO))
-                .WithModule(new CustomHeaderModule());
+                    .WithUrlPrefix($"http://*:{Settings.Default.Port}")
+                    .WithMode(HttpListenerMode.EmbedIO))
+                .WithCors("*", "*", "*") // ⭐ CORS erlaubt alle Ursprünge, Header, Methoden
+                .WithWebApi("/api", m => m.WithController<Controller>())
+                .WithStaticFolder("/", webAppDir, false);
 
             foreach (string endPoint in appEndPoints) {
-                WebServer = WebServer.WithModule(new RedirectModule("/" + endPoint, "/")); // redirect all reloads of the app to the root
+                WebServer = WebServer.WithModule(new RedirectModule("/" + endPoint, "/"));
             }
-            WebServer = WebServer.WithWebApi("/api", m => m.WithController<Controller>()); // Register the controller, which will be used to handle all the api requests which were previously in server.py
-            WebServer = WebServer.WithStaticFolder("/", webAppDir, false); // Register the static folder, which will be used to serve the web app
         }
 
         public void Start() {
@@ -66,7 +69,6 @@ namespace TouchNStars.Server {
             }
         }
 
-        // [STAThread]
         private void APITask(WebServer server) {
             Logger.Info("Touch-N-Stars Webserver starting");
 
@@ -78,20 +80,5 @@ namespace TouchNStars.Server {
                 Notification.ShowError($"Failed to start web server, see NINA log for details");
             }
         }
-    }
-
-    internal class CustomHeaderModule : WebModuleBase {
-        internal CustomHeaderModule() : base("/") {
-        }
-
-        protected override Task OnRequestAsync(IHttpContext context) {
-
-            context.Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-            context.Response.Headers.Add("Access-Control-Allow-Headers", "content-type,authorization");
-            context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-            return Task.CompletedTask;
-        }
-
-        public override bool IsFinalHandler => false;
     }
 }
