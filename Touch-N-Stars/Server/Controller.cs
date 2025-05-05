@@ -400,7 +400,7 @@ public class Controller : WebApiController {
         }
     }
 
-    [Route(HttpVerbs.Get, "get-api-port")]
+    [Route(HttpVerbs.Get, "/get-api-port")]
     public async Task<int> GetApiPort() {
         return await TouchNStars.Communicator.GetPort(true);
     }

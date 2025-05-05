@@ -14,10 +14,7 @@ using TouchNStars.Utility;
 using TouchNStars.Server;
 using Settings = TouchNStars.Properties.Settings;
 using System.Collections.Generic;
-using System;
 using System.Windows;
-using System.Windows.Input;
-using Google.Protobuf.WellKnownTypes;
 
 namespace TouchNStars {
 
@@ -72,6 +69,11 @@ namespace TouchNStars {
                             guider,
                             broker);
 
+            UpdateDefaultPortCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(() => {
+                Port = CachedPort;
+                CachedPort = Port; // This may look useless, but that way the visibility only changes when cachedPort changes and not when the user enters a new port
+            });
+
             Communicator = new Communicator();
 
             SetHostNames();
@@ -111,7 +113,7 @@ namespace TouchNStars {
 
         private void ShowNotificationIfPortChanged() {
             if (CachedPort != Port) {
-                Notification.ShowInformation("Advanced API launched on a different port: " + CachedPort);
+                Notification.ShowInformation("Touch 'N' Stars launched on a different port: " + CachedPort);
             }
         }
 
