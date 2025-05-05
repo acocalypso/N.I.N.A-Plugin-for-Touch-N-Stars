@@ -21,12 +21,15 @@ namespace TouchNStars.Server {
 
         private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings", "seq-mon", "flat", "dome", "logs", "switch", "flats", "stellarium"];
 
+        private int port;
+        public TouchNStarsServer(int port) => this.port = port;
+
         public void CreateServer() {
             string assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             string webAppDir = Path.Combine(assemblyFolder, "app");
 
             WebServer = new WebServer(o => o
-                .WithUrlPrefix($"http://*:{Settings.Default.Port}")
+                .WithUrlPrefix($"http://*:{port}")
                 .WithMode(HttpListenerMode.EmbedIO))
                 .WithModule(new CustomHeaderModule());
 
