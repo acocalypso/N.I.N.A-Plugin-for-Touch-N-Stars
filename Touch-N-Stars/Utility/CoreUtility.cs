@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using System.Net.NetworkInformation;
+using NINA.Core.Utility;
 
 namespace TouchNStars.Utility;
 
@@ -48,6 +50,31 @@ public static class CoreUtility {
 
     public static Dictionary<string, string> GetLocalNames() {
         return lazyNames.Value;
+    }
+
+    public static bool IsPortAvailable(int port) {
+        bool isPortAvailable = true;
+
+        IPGlobalProperties ipGlobalProperties = IPGlobalProperties.GetIPGlobalProperties();
+        IPEndPoint[] ipEndPoints = ipGlobalProperties.GetActiveTcpListeners();
+
+        foreach (IPEndPoint endPoint in ipEndPoints) {
+            if (endPoint.Port == port) {
+                isPortAvailable = false;
+                break;
+            }
+        }
+
+        return isPortAvailable;
+    }
+
+    public static int GetNearestAvailablePort(int startPort) {
+        using var watch = MyStopWatch.Measure();
+        int port = startPort;
+        while (!IsPortAvailable(port)) {
+            port++;
+        }
+        return port;
     }
 
     private static readonly Lazy<Dictionary<string, string>> lazyNames = new Lazy<Dictionary<string, string>>(() => {
