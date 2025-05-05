@@ -327,7 +327,7 @@ public class Controller : WebApiController {
                 }
             };
             process.Start();
-            
+
             return new Dictionary<string, object>() {
                 { "success", true },
                 { "message", "System shutdown initiated" }
@@ -354,7 +354,7 @@ public class Controller : WebApiController {
                 }
             };
             process.Start();
-            
+
             return new Dictionary<string, object>() {
                 { "success", true },
                 { "message", "System restart initiated" }
@@ -398,5 +398,10 @@ public class Controller : WebApiController {
             Logger.Error(ex);
             throw;
         }
+    }
+
+    [Route(HttpVerbs.Get, "/get-api-port")]
+    public async Task<int> GetApiPort() {
+        return await TouchNStars.Communicator.GetPort(true);
     }
 }
