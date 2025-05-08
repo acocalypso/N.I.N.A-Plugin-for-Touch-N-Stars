@@ -1,8 +1,6 @@
-using EmbedIO;
+﻿using EmbedIO;
 using EmbedIO.Actions;
-using EmbedIO.Files;
 using EmbedIO.WebApi;
-using EmbedIO.Cors;
 using NINA.Core.Utility;
 using NINA.Core.Utility.Notification;
 using System;
@@ -12,6 +10,7 @@ using System.Reflection;
 using System.Threading;
 using TouchNStars.Properties;
 using System.Threading.Tasks;
+using System.Text;
 
 namespace TouchNStars.Server {
     public class TouchNStarsServer {
@@ -87,12 +86,16 @@ namespace TouchNStars.Server {
         internal CustomHeaderModule() : base("/") {
         }
 
-        protected override Task OnRequestAsync(IHttpContext context) {
-
-            context.Response.Headers.Add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-            context.Response.Headers.Add("Access-Control-Allow-Headers", "content-type,authorization");
+        protected override async Task OnRequestAsync(IHttpContext context) {
+            context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
             context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-            return Task.CompletedTask;
+
+            if (context.Request.HttpVerb == HttpVerbs.Options) {
+                context.Response.StatusCode = 200;
+                await context.SendStringAsync(string.Empty, "text/plain", Encoding.UTF8); 
+                return;
+            }
         }
 
         public override bool IsFinalHandler => false;

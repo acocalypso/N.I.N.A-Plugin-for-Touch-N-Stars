@@ -404,4 +404,25 @@ public class Controller : WebApiController {
     public async Task<int> GetApiPort() {
         return await TouchNStars.Communicator.GetPort(true);
     }
+
+    [Route(HttpVerbs.Get, "/version")]
+    public object GetAssemblyVersion() {
+        try {
+            var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString();
+
+            return new Dictionary<string, object>
+            {
+            { "success", true },
+            { "version", version }
+        };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new Dictionary<string, object>
+            {
+            { "success", false },
+            { "error", ex.Message }
+        };
+        }
+    }
 }
