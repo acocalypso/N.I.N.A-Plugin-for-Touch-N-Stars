@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 
 // [MANDATORY] The assembly versioning
 //Should be incremented for each new release build of a plugin
-[assembly: AssemblyVersion("1.0.7.0")]
-[assembly: AssemblyFileVersion("1.0.7.0")]
+[assembly: AssemblyVersion("1.0.7.1")]
+[assembly: AssemblyFileVersion("1.0.7.1")]
 
 // [MANDATORY] The name of your plugin
 [assembly: AssemblyTitle("Touch 'N' Stars")]
@@ -73,6 +73,7 @@ http://<your-NINA-PC-IP-address>:<port>
 
 ## **Android App:**
 Available at [GitHub Releases](https://github.com/Touch-N-Stars/Touch-N-Stars/releases)
+Available at [Play Store](https://play.google.com/store/apps/details?id=com.TouchNStars.dev)
 
 ## **iOS App:**
 Available at [App Store](https://apps.apple.com/us/app/touch-n-stars/id6744902856)
