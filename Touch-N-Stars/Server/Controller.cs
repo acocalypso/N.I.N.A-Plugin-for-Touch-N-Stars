@@ -24,6 +24,7 @@ public class FavoriteTarget {
     public double Dec { get; set; }
     public string RaString { get; set; }
     public string DecString { get; set; }
+    public string Rotation { get; set; }
 }
 
 public class NGCSearchResult {
@@ -151,6 +152,7 @@ public class Controller : WebApiController {
             existing.Dec = updatedTarget.Dec;
             existing.DecString = updatedTarget.DecString;
             existing.RaString = updatedTarget.RaString;
+            existing.Rotation = updatedTarget.Rotation;
 
 
             await File.WriteAllTextAsync(FavoritesFilePath, System.Text.Json.JsonSerializer.Serialize(favorites, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
