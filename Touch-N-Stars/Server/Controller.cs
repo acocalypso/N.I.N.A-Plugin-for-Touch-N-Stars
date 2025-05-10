@@ -48,7 +48,7 @@ public class Controller : WebApiController {
     private static readonly List<string> excluded_members = new List<string>() { "GetEquipment", "RequestAll", "LoadPlugin" };
     private static readonly string FavoritesFilePath = Path.Combine(
      Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-     "NINA", "Plugins", "3.0.0", "Touch 'N' Stars", "favorites.json"
+     "NINA", "TnsCache", "favorites.json"
     );
     private static readonly object _fileLock = new();
 
@@ -71,6 +71,7 @@ public class Controller : WebApiController {
 
             currentFavorites.Add(favorite);
             lock (_fileLock) {
+                Directory.CreateDirectory(Path.GetDirectoryName(FavoritesFilePath));
                 var updatedJson = System.Text.Json.JsonSerializer.Serialize(
                     currentFavorites,
                     new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
