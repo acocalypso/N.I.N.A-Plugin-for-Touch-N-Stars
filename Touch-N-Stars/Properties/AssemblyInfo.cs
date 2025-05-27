@@ -72,7 +72,6 @@ http://<your-NINA-PC-IP-address>:<port>
 ---
 
 ## **Android App:**
-Available at [GitHub Releases](https://github.com/Touch-N-Stars/Touch-N-Stars/releases)
 Available at [Play Store](https://play.google.com/store/apps/details?id=com.TouchNStars.dev)
 
 ## **iOS App:**
