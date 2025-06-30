@@ -873,6 +873,17 @@ public class Controller : WebApiController {
                     PeakDec = status.Stats.PeakDec,
                     AvgDistance = status.AvgDist
                 } : null,
+                StarLostInfo = status?.LastStarLost != null ? new {
+                    Frame = status.LastStarLost.Frame,
+                    Time = status.LastStarLost.Time,
+                    StarMass = status.LastStarLost.StarMass,
+                    SNR = status.LastStarLost.SNR,
+                    AvgDist = status.LastStarLost.AvgDist,
+                    ErrorCode = status.LastStarLost.ErrorCode,
+                    Status = status.LastStarLost.Status,
+                    Timestamp = status.LastStarLost.Timestamp,
+                    TimeSinceLost = DateTime.Now - status.LastStarLost.Timestamp
+                } : null,
                 ServerInfo = new {
                     PHD2Version = status?.Version,
                     PHD2Subversion = status?.PHDSubver,

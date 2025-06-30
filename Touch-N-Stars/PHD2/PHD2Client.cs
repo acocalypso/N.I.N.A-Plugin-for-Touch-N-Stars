@@ -53,6 +53,18 @@ namespace TouchNStars.PHD2
         public PHD2Exception(string message, Exception inner) : base(message, inner) { }
     }
 
+    public class StarLostInfo
+    {
+        public int Frame { get; set; }
+        public double Time { get; set; }
+        public double StarMass { get; set; }
+        public double SNR { get; set; }
+        public double AvgDist { get; set; }
+        public int ErrorCode { get; set; }
+        public string Status { get; set; }
+        public DateTime Timestamp { get; set; }
+    }
+
     public class PHD2Status
     {
         public string AppState { get; set; }
@@ -64,6 +76,7 @@ namespace TouchNStars.PHD2
         public bool IsGuiding { get; set; }
         public bool IsSettling { get; set; }
         public SettleProgress SettleProgress { get; set; }
+        public StarLostInfo LastStarLost { get; set; }
     }
 
     internal class PHD2Connection : IDisposable
@@ -195,6 +208,7 @@ namespace TouchNStars.PHD2
         public GuideStats Stats { get; private set; } = new GuideStats();
         public string Version { get; private set; }
         public string PHDSubver { get; private set; }
+        public StarLostInfo LastStarLost { get; private set; }
         private SettleProgress settle;
 
         public PHD2Client(string hostname = "localhost", uint instance = 1)
@@ -344,6 +358,19 @@ namespace TouchNStars.PHD2
                 case "StarLost":
                     AppState = "LostLock";
                     AvgDist = (double)eventObj["AvgDist"];
+                    
+                    // Capture detailed star lost information
+                    LastStarLost = new StarLostInfo
+                    {
+                        Frame = (int)eventObj["Frame"],
+                        Time = (double)eventObj["Time"],
+                        StarMass = (double)eventObj["StarMass"],
+                        SNR = (double)eventObj["SNR"],
+                        AvgDist = (double)eventObj["AvgDist"],
+                        ErrorCode = (int)eventObj["ErrorCode"],
+                        Status = (string)eventObj["Status"],
+                        Timestamp = DateTime.Now
+                    };
                     break;
 
                 case "SettleBegin":
@@ -593,7 +620,8 @@ namespace TouchNStars.PHD2
                 IsConnected = IsConnected,
                 IsGuiding = IsGuiding(),
                 IsSettling = settle != null,
-                SettleProgress = settle
+                SettleProgress = settle,
+                LastStarLost = LastStarLost
             };
         }
 

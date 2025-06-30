@@ -28,6 +28,7 @@ Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/all-info" -Method GET
 - Pixel scale information  
 - Guiding capabilities and state
 - Complete PHD2 control (start/stop guiding, dithering, etc.)
+- **⭐ Star lost detection with detailed information** (frame, time, SNR, error codes, etc.)
 
 ## API Base URL
 
@@ -269,6 +270,17 @@ Returns comprehensive information about PHD2 in a single API call, including sta
       "PeakDec": 1.89,
       "AvgDistance": 1.23
     },
+    "StarLostInfo": {
+      "Frame": 123,
+      "Time": 45.6,
+      "StarMass": 234.5,
+      "SNR": 12.3,
+      "AvgDist": 1.23,
+      "ErrorCode": 2,
+      "Status": "low SNR",
+      "Timestamp": "2025-06-30T10:30:00",
+      "TimeSinceLost": "00:00:15"
+    },
     "ServerInfo": {
       "PHD2Version": "2.6.11",
       "PHD2Subversion": "Dev",
@@ -281,6 +293,55 @@ Returns comprehensive information about PHD2 in a single API call, including sta
   "Type": "PHD2AllInfo"
 }
 ```
+
+## 🌟 Star Lost Detection
+
+The API provides comprehensive star lost detection with detailed diagnostic information:
+
+### Star Lost Information
+
+When PHD2 loses the guide star, the API captures detailed information including:
+
+- **Frame**: The frame number when the star was lost
+- **Time**: Time since guiding started (in seconds) 
+- **StarMass**: Star mass value at the time of loss
+- **SNR**: Signal-to-noise ratio when the star was lost
+- **AvgDist**: Average guide distance in pixels
+- **ErrorCode**: PHD2 error code (1=saturated, 2=low SNR, 3=low mass, 4=low HFD, 5=high HFD, 6=edge of frame, 7=mass change, 8=unexpected)
+- **Status**: Human-readable error message
+- **Timestamp**: When the star loss occurred
+- **TimeSinceLost**: How long ago the star was lost
+
+### Checking for Star Loss
+
+```powershell
+# Get current PHD2 status including star lost info
+$info = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/all-info" -Method GET
+
+# Check if a star was lost
+if ($info.Response.Status.AppState -eq "LostLock") {
+    Write-Host "⚠️  Star Lost!"
+    if ($info.Response.StarLostInfo) {
+        Write-Host "Frame: $($info.Response.StarLostInfo.Frame)"
+        Write-Host "Error: $($info.Response.StarLostInfo.Status)"
+        Write-Host "SNR: $($info.Response.StarLostInfo.SNR)"
+        Write-Host "Time since lost: $($info.Response.StarLostInfo.TimeSinceLost)"
+    }
+}
+```
+
+### Error Codes Reference
+
+| Code | Meaning |
+|------|---------|
+| 1 | Saturated |
+| 2 | Low SNR |
+| 3 | Low mass |
+| 4 | Low HFD |
+| 5 | High HFD |
+| 6 | Edge of frame |
+| 7 | Mass change |
+| 8 | Unexpected |
 
 ## Error Handling
 
