@@ -14,6 +14,7 @@ using System.Net.Http.Json;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using TouchNStars.Utility;
+using TouchNStars.PHD2;
 
 namespace TouchNStars.Server;
 
@@ -51,7 +52,7 @@ public class Controller : WebApiController {
      "NINA", "TnsCache", "favorites.json"
     );
     private static readonly object _fileLock = new();
-
+    private static PHD2Service phd2Service = new PHD2Service();
 
 
 
@@ -426,6 +427,404 @@ public class Controller : WebApiController {
             { "success", false },
             { "error", ex.Message }
         };
+        }
+    }
+
+    // PHD2 API Endpoints
+
+    public static void CleanupPHD2Service() {
+        phd2Service?.Dispose();
+    }
+
+    [Route(HttpVerbs.Get, "/phd2/status")]
+    public async Task<ApiResponse> GetPHD2Status() {
+        try {
+            var status = await phd2Service.GetStatusAsync();
+            return new ApiResponse {
+                Success = true,
+                Response = status,
+                StatusCode = 200,
+                Type = "PHD2Status"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/connect")]
+    public async Task<ApiResponse> ConnectPHD2() {
+        try {
+            var requestData = await HttpContext.GetRequestDataAsync<dynamic>();
+            string hostname = requestData?.hostname ?? "localhost";
+            uint instance = requestData?.instance ?? 1;
+
+            bool result = await phd2Service.ConnectAsync(hostname, instance);
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { Connected = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Connection"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/disconnect")]
+    public async Task<ApiResponse> DisconnectPHD2() {
+        try {
+            await phd2Service.DisconnectAsync();
+            
+            return new ApiResponse {
+                Success = true,
+                Response = new { Connected = false },
+                StatusCode = 200,
+                Type = "PHD2Connection"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/phd2/profiles")]
+    public async Task<ApiResponse> GetPHD2Profiles() {
+        try {
+            var profiles = await phd2Service.GetEquipmentProfilesAsync();
+            
+            return new ApiResponse {
+                Success = true,
+                Response = profiles,
+                StatusCode = 200,
+                Type = "PHD2Profiles"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/connect-equipment")]
+    public async Task<ApiResponse> ConnectPHD2Equipment() {
+        try {
+            var requestData = await HttpContext.GetRequestDataAsync<dynamic>();
+            string profileName = requestData?.profileName;
+
+            if (string.IsNullOrEmpty(profileName)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Profile name is required",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
+
+            bool result = await phd2Service.ConnectEquipmentAsync(profileName);
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { EquipmentConnected = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Equipment"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/start-guiding")]
+    public async Task<ApiResponse> StartPHD2Guiding() {
+        try {
+            var requestData = await HttpContext.GetRequestDataAsync<dynamic>();
+            double settlePixels = requestData?.settlePixels ?? 2.0;
+            double settleTime = requestData?.settleTime ?? 10.0;
+            double settleTimeout = requestData?.settleTimeout ?? 100.0;
+
+            bool result = await phd2Service.StartGuidingAsync(settlePixels, settleTime, settleTimeout);
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { GuidingStarted = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Guiding"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/stop-guiding")]
+    public async Task<ApiResponse> StopPHD2Guiding() {
+        try {
+            bool result = await phd2Service.StopGuidingAsync();
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { GuidingStopped = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Guiding"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/dither")]
+    public async Task<ApiResponse> DitherPHD2() {
+        try {
+            var requestData = await HttpContext.GetRequestDataAsync<dynamic>();
+            double ditherPixels = requestData?.ditherPixels ?? 3.0;
+            double settlePixels = requestData?.settlePixels ?? 2.0;
+            double settleTime = requestData?.settleTime ?? 10.0;
+            double settleTimeout = requestData?.settleTimeout ?? 100.0;
+
+            bool result = await phd2Service.DitherAsync(ditherPixels, settlePixels, settleTime, settleTimeout);
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { DitherStarted = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Dither"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/pause")]
+    public async Task<ApiResponse> PausePHD2() {
+        try {
+            bool result = await phd2Service.PauseGuidingAsync();
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { Paused = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Pause"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/unpause")]
+    public async Task<ApiResponse> UnpausePHD2() {
+        try {
+            bool result = await phd2Service.UnpauseGuidingAsync();
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { Unpaused = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Pause"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/start-looping")]
+    public async Task<ApiResponse> StartPHD2Looping() {
+        try {
+            bool result = await phd2Service.StartLoopingAsync();
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { LoopingStarted = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Looping"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/phd2/settling")]
+    public async Task<ApiResponse> GetPHD2Settling() {
+        try {
+            var settling = await phd2Service.CheckSettlingAsync();
+            
+            return new ApiResponse {
+                Success = true,
+                Response = settling,
+                StatusCode = 200,
+                Type = "PHD2Settling"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/phd2/pixel-scale")]
+    public async Task<ApiResponse> GetPHD2PixelScale() {
+        try {
+            var pixelScale = await phd2Service.GetPixelScaleAsync();
+            
+            return new ApiResponse {
+                Success = true,
+                Response = new { PixelScale = pixelScale },
+                StatusCode = 200,
+                Type = "PHD2PixelScale"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/phd2/all-info")]
+    public async Task<ApiResponse> GetAllPHD2Info() {
+        try {
+            // Get all available PHD2 information in parallel
+            var statusTask = phd2Service.GetStatusAsync();
+            var profilesTask = phd2Service.GetEquipmentProfilesAsync();
+            var settlingTask = phd2Service.CheckSettlingAsync();
+            var pixelScaleTask = phd2Service.GetPixelScaleAsync();
+
+            await Task.WhenAll(statusTask, profilesTask, settlingTask, pixelScaleTask);
+
+            var status = await statusTask;
+            var profiles = await profilesTask;
+            var settling = await settlingTask;
+            var pixelScale = await pixelScaleTask;
+
+            var allInfo = new {
+                Connection = new {
+                    IsConnected = phd2Service.IsConnected,
+                    LastError = phd2Service.LastError
+                },
+                Status = status,
+                EquipmentProfiles = profiles,
+                Settling = settling,
+                PixelScale = pixelScale,
+                Capabilities = new {
+                    CanGuide = phd2Service.IsConnected && (status?.AppState == "Guiding" || status?.AppState == "Looping" || status?.AppState == "Stopped"),
+                    CanDither = phd2Service.IsConnected && status?.AppState == "Guiding",
+                    CanPause = phd2Service.IsConnected && status?.AppState == "Guiding",
+                    CanLoop = phd2Service.IsConnected && status?.AppState == "Stopped"
+                },
+                GuideStats = status?.Stats != null ? new {
+                    RmsTotal = status.Stats.RmsTotal,
+                    RmsRA = status.Stats.RmsRA,
+                    RmsDec = status.Stats.RmsDec,
+                    PeakRA = status.Stats.PeakRA,
+                    PeakDec = status.Stats.PeakDec,
+                    AvgDistance = status.AvgDist
+                } : null,
+                ServerInfo = new {
+                    PHD2Version = status?.Version,
+                    PHD2Subversion = status?.PHDSubver,
+                    AppState = status?.AppState,
+                    IsGuiding = status?.IsGuiding ?? false,
+                    IsSettling = status?.IsSettling ?? false
+                }
+            };
+            
+            return new ApiResponse {
+                Success = true,
+                Response = allInfo,
+                StatusCode = 200,
+                Type = "PHD2AllInfo"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
         }
     }
 }
