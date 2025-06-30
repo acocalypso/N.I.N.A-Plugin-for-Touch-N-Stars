@@ -2,6 +2,33 @@
 
 This document describes the PHD2 API endpoints added to the Touch 'N' Stars plugin.
 
+## 🚀 Quick Start
+
+1. **Start PHD2** - Make sure PHD2 is running on your system
+2. **Start N.I.N.A** with the Touch 'N' Stars plugin enabled
+3. **Connect to PHD2** via the API:
+
+```powershell
+# Connect to PHD2 (required first step)
+Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/connect" -Method POST -ContentType "application/json" -Body '{"hostname": "localhost", "instance": 1}'
+
+# Get all PHD2 information
+Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/all-info" -Method GET
+```
+
+4. **View real-time PHD2 status**: Open `http://localhost:5000/api/phd2/all-info` in your browser or API client
+
+## ✅ API Status
+
+✅ **WORKING**: The PHD2 API integration is fully functional and provides real-time access to all PHD2 information, including:
+
+- Connection status and control
+- Real-time guiding statistics
+- Equipment profiles
+- Pixel scale information  
+- Guiding capabilities and state
+- Complete PHD2 control (start/stop guiding, dithering, etc.)
+
 ## API Base URL
 
 All API endpoints are accessible at: `http://localhost:5000/api/`
@@ -310,37 +337,89 @@ const guideResponse = await fetch('/phd2/start-guiding', {
 });
 ```
 
+### PowerShell Examples (Tested & Working)
+
+```powershell
+# Connect to PHD2 (required first step)
+$connectResult = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/connect" -Method POST -ContentType "application/json" -Body '{"hostname": "localhost", "instance": 1}'
+Write-Host "Connected: $($connectResult.Response.Connected)"
+
+# Get all PHD2 information
+$allInfo = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/all-info" -Method GET
+$allInfo.Response | ConvertTo-Json -Depth 10
+
+# Example real output:
+# {
+#     "Connection": {
+#         "IsConnected": true,
+#         "LastError": null
+#     },
+#     "Status": {
+#         "AppState": "Looping",
+#         "AvgDist": 0,
+#         "Stats": {...},
+#         "Version": "2.6.13",
+#         "IsConnected": true,
+#         "IsGuiding": false
+#     },
+#     "EquipmentProfiles": ["test"],
+#     "PixelScale": 9.6257,
+#     "Capabilities": {
+#         "CanGuide": true,
+#         "CanDither": false,
+#         "CanPause": false,
+#         "CanLoop": false
+#     }
+# }
+```
+
 ### cURL Examples
 
 ```bash
-# Connect to PHD2
-curl -X POST http://localhost:5000/api/phd2/connect \
-  -H "Content-Type: application/json" \
-  -d '{"hostname": "localhost", "instance": 1}'
+# Connect to PHD2 (Windows Command Prompt/PowerShell)
+curl -X POST "http://localhost:5000/api/phd2/connect" -H "Content-Type: application/json" -d "{\"hostname\": \"localhost\", \"instance\": 1}"
 
-# Get all PHD2 information
+# Get PHD2 status
 curl http://localhost:5000/api/phd2/all-info
 
 # Start guiding
-curl -X POST http://localhost:5000/api/phd2/start-guiding \
-  -H "Content-Type: application/json" \
-  -d '{"settlePixels": 2.0, "settleTime": 10.0, "settleTimeout": 100.0}'
+curl -X POST "http://localhost:5000/api/phd2/start-guiding" -H "Content-Type: application/json" -d "{\"settlePixels\": 2.0, \"settleTime\": 10.0, \"settleTimeout\": 100.0}"
 ```
 
-## Integration Notes
+## 🔧 Troubleshooting
 
-- The PHD2 service maintains a persistent connection to PHD2
-- All operations are asynchronous and return immediately
-- Use the status endpoint to monitor the current state
-- Always check the `Success` field in responses
-- The PHD2 service automatically handles reconnection attempts
-- Multiple simultaneous requests are handled safely with internal locking
+### Common Issues
 
-## Troubleshooting
+1. **"PHD2 is not connected" Error**
+   - Make sure PHD2 is running
+   - Call `/api/phd2/connect` first before using other endpoints
+   - Check that PHD2 is listening on port 4400: `netstat -an | findstr "4400"`
 
-1. **Connection Failed**: Ensure PHD2 is running and server mode is enabled
-2. **Port Issues**: Check if PHD2 is using the default port 4400
-3. **Equipment Connection Failed**: Verify the profile name exists in PHD2
-4. **Guiding Won't Start**: Ensure equipment is connected and a star is selected in PHD2
+2. **Connection Refused**
+   - Verify PHD2 is running and server mode is enabled
+   - Check firewall settings
+   - Ensure PHD2 is on the correct instance (port 4400 + instance - 1)
+
+3. **API Returns Empty/Null Data**
+   - Connect to PHD2 first using `/api/phd2/connect`
+   - The API only provides real-time data after establishing a connection
+
+### Verification Steps
+
+1. **Check PHD2 is listening:**
+   ```powershell
+   netstat -an | findstr "4400"
+   # Should show: TCP    0.0.0.0:4400    0.0.0.0:0    LISTENING
+   ```
+
+2. **Test basic connectivity:**
+   ```powershell
+   Test-NetConnection -ComputerName localhost -Port 4400
+   ```
+
+3. **Verify API connectivity:**
+   ```powershell
+   Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/connect" -Method POST -ContentType "application/json" -Body '{"hostname": "localhost", "instance": 1}'
+   ```
 
 For more detailed PHD2 API documentation, see: https://github.com/OpenPHDGuiding/phd2/wiki/EventMonitoring

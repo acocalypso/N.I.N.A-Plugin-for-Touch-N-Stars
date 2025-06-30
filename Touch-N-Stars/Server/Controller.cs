@@ -461,9 +461,24 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/connect")]
     public async Task<ApiResponse> ConnectPHD2() {
         try {
-            var requestData = await HttpContext.GetRequestDataAsync<dynamic>();
-            string hostname = requestData?.hostname ?? "localhost";
-            uint instance = requestData?.instance ?? 1;
+            string hostname = "localhost";
+            uint instance = 1;
+
+            try {
+                var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
+                if (requestData != null) {
+                    if (requestData.ContainsKey("hostname") && requestData["hostname"] != null) {
+                        hostname = requestData["hostname"].ToString();
+                    }
+                    if (requestData.ContainsKey("instance") && requestData["instance"] != null) {
+                        if (uint.TryParse(requestData["instance"].ToString(), out uint parsedInstance)) {
+                            instance = parsedInstance;
+                        }
+                    }
+                }
+            } catch {
+                // Use defaults if parsing fails
+            }
 
             bool result = await phd2Service.ConnectAsync(hostname, instance);
             
@@ -534,8 +549,16 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/connect-equipment")]
     public async Task<ApiResponse> ConnectPHD2Equipment() {
         try {
-            var requestData = await HttpContext.GetRequestDataAsync<dynamic>();
-            string profileName = requestData?.profileName;
+            string profileName = null;
+
+            try {
+                var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
+                if (requestData != null && requestData.ContainsKey("profileName") && requestData["profileName"] != null) {
+                    profileName = requestData["profileName"].ToString();
+                }
+            } catch {
+                // Handle parsing errors
+            }
 
             if (string.IsNullOrEmpty(profileName)) {
                 HttpContext.Response.StatusCode = 400;
@@ -570,10 +593,32 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/start-guiding")]
     public async Task<ApiResponse> StartPHD2Guiding() {
         try {
-            var requestData = await HttpContext.GetRequestDataAsync<dynamic>();
-            double settlePixels = requestData?.settlePixels ?? 2.0;
-            double settleTime = requestData?.settleTime ?? 10.0;
-            double settleTimeout = requestData?.settleTimeout ?? 100.0;
+            double settlePixels = 2.0;
+            double settleTime = 10.0;
+            double settleTimeout = 100.0;
+
+            try {
+                var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
+                if (requestData != null) {
+                    if (requestData.ContainsKey("settlePixels") && requestData["settlePixels"] != null) {
+                        if (double.TryParse(requestData["settlePixels"].ToString(), out double parsedSettlePixels)) {
+                            settlePixels = parsedSettlePixels;
+                        }
+                    }
+                    if (requestData.ContainsKey("settleTime") && requestData["settleTime"] != null) {
+                        if (double.TryParse(requestData["settleTime"].ToString(), out double parsedSettleTime)) {
+                            settleTime = parsedSettleTime;
+                        }
+                    }
+                    if (requestData.ContainsKey("settleTimeout") && requestData["settleTimeout"] != null) {
+                        if (double.TryParse(requestData["settleTimeout"].ToString(), out double parsedSettleTimeout)) {
+                            settleTimeout = parsedSettleTimeout;
+                        }
+                    }
+                }
+            } catch {
+                // Use defaults if parsing fails
+            }
 
             bool result = await phd2Service.StartGuidingAsync(settlePixels, settleTime, settleTimeout);
             
@@ -621,11 +666,38 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/dither")]
     public async Task<ApiResponse> DitherPHD2() {
         try {
-            var requestData = await HttpContext.GetRequestDataAsync<dynamic>();
-            double ditherPixels = requestData?.ditherPixels ?? 3.0;
-            double settlePixels = requestData?.settlePixels ?? 2.0;
-            double settleTime = requestData?.settleTime ?? 10.0;
-            double settleTimeout = requestData?.settleTimeout ?? 100.0;
+            double ditherPixels = 3.0;
+            double settlePixels = 2.0;
+            double settleTime = 10.0;
+            double settleTimeout = 100.0;
+
+            try {
+                var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
+                if (requestData != null) {
+                    if (requestData.ContainsKey("ditherPixels") && requestData["ditherPixels"] != null) {
+                        if (double.TryParse(requestData["ditherPixels"].ToString(), out double parsedDitherPixels)) {
+                            ditherPixels = parsedDitherPixels;
+                        }
+                    }
+                    if (requestData.ContainsKey("settlePixels") && requestData["settlePixels"] != null) {
+                        if (double.TryParse(requestData["settlePixels"].ToString(), out double parsedSettlePixels)) {
+                            settlePixels = parsedSettlePixels;
+                        }
+                    }
+                    if (requestData.ContainsKey("settleTime") && requestData["settleTime"] != null) {
+                        if (double.TryParse(requestData["settleTime"].ToString(), out double parsedSettleTime)) {
+                            settleTime = parsedSettleTime;
+                        }
+                    }
+                    if (requestData.ContainsKey("settleTimeout") && requestData["settleTimeout"] != null) {
+                        if (double.TryParse(requestData["settleTimeout"].ToString(), out double parsedSettleTimeout)) {
+                            settleTimeout = parsedSettleTimeout;
+                        }
+                    }
+                }
+            } catch {
+                // Use defaults if parsing fails
+            }
 
             bool result = await phd2Service.DitherAsync(ditherPixels, settlePixels, settleTime, settleTimeout);
             

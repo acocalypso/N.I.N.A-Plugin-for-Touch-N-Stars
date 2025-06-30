@@ -27,19 +27,31 @@ namespace TouchNStars.Server
                 {
                     lock (lockObject)
                     {
+                        Logger.Info($"Attempting to connect to PHD2 at {hostname}, instance {instance}");
+                        
                         if (client != null && client.IsConnected)
+                        {
+                            Logger.Info("Disconnecting existing PHD2 client");
                             client.Disconnect();
+                        }
 
+                        ushort port = (ushort)(4400 + instance - 1);
+                        Logger.Info($"Creating PHD2 client for {hostname}:{port}");
+                        
                         client = new PHD2Client(hostname, instance);
+                        Logger.Info("Calling client.Connect()");
                         client.Connect();
+                        
+                        Logger.Info($"PHD2 connection successful. IsConnected: {client.IsConnected}");
                         lastError = null;
                         return true;
                     }
                 }
                 catch (Exception ex)
                 {
-                    lastError = ex.Message;
+                    lastError = $"Failed to connect to PHD2 at {hostname}:{4400 + instance - 1}: {ex.Message}";
                     Logger.Error($"Failed to connect to PHD2: {ex}");
+                    Logger.Error($"Stack trace: {ex.StackTrace}");
                     return false;
                 }
             });
