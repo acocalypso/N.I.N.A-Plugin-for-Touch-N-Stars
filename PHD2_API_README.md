@@ -328,7 +328,7 @@ Set the camera exposure time in milliseconds.
 **Request Body:**
 ```json
 {
-  "exposure": 1000
+  "exposureMs": 1500
 }
 ```
 
@@ -337,10 +337,10 @@ Set the camera exposure time in milliseconds.
 {
   "Success": true,
   "Response": {
-    "Message": "Exposure time set to 1000 ms"
+    "ExposureSet": 1500
   },
   "StatusCode": 200,
-  "Type": "PHD2ExposureSet"
+  "Type": "PHD2Parameter"
 }
 ```
 
@@ -350,15 +350,17 @@ GET /phd2/get-exposure
 ```
 Get the current camera exposure time.
 
+**⚠️ Note:** This parameter is only available when PHD2 is actively looping or guiding. When PHD2 is in "Stopped" state, it may return 0. Start looping first to get the actual exposure value.
+
 **Response:**
 ```json
 {
   "Success": true,
   "Response": {
-    "Exposure": 1000
+    "Exposure": 1500
   },
   "StatusCode": 200,
-  "Type": "PHD2Exposure"
+  "Type": "PHD2Parameter"
 }
 ```
 
