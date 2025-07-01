@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using Newtonsoft.Json;
@@ -623,6 +624,195 @@ namespace TouchNStars.PHD2
                 SettleProgress = settle,
                 LastStarLost = LastStarLost
             };
+        }
+
+        // Additional "set_" methods for comprehensive PHD2 control
+        public void SetExposure(int exposureMs)
+        {
+            CheckConnected();
+            Call("set_exposure", new JValue(exposureMs));
+        }
+
+        public void SetDecGuideMode(string mode)
+        {
+            CheckConnected();
+            // Valid modes: "Off", "Auto", "North", "South"
+            if (!new[] { "Off", "Auto", "North", "South" }.Contains(mode))
+                throw new PHD2Exception($"Invalid Dec guide mode: {mode}. Valid modes are: Off, Auto, North, South");
+            
+            Call("set_dec_guide_mode", new JValue(mode));
+        }
+
+        public void SetGuideOutputEnabled(bool enabled)
+        {
+            CheckConnected();
+            Call("set_guide_output_enabled", new JValue(enabled));
+        }
+
+        public void SetLockPosition(double x, double y, bool exact = true)
+        {
+            CheckConnected();
+            var param = new JArray { x, y, exact };
+            Call("set_lock_position", param);
+        }
+
+        public void SetLockShiftEnabled(bool enabled)
+        {
+            CheckConnected();
+            Call("set_lock_shift_enabled", new JValue(enabled));
+        }
+
+        public void SetLockShiftParams(double xRate, double yRate, string units = "arcsec/hr", string axes = "RA/Dec")
+        {
+            CheckConnected();
+            // Valid units: "arcsec/hr", "pixels/hr"
+            // Valid axes: "RA/Dec", "X/Y"
+            if (!new[] { "arcsec/hr", "pixels/hr" }.Contains(units))
+                throw new PHD2Exception($"Invalid units: {units}. Valid units are: arcsec/hr, pixels/hr");
+            
+            if (!new[] { "RA/Dec", "X/Y" }.Contains(axes))
+                throw new PHD2Exception($"Invalid axes: {axes}. Valid axes are: RA/Dec, X/Y");
+
+            var param = new JObject
+            {
+                ["rate"] = new JArray { xRate, yRate },
+                ["units"] = units,
+                ["axes"] = axes
+            };
+            Call("set_lock_shift_params", param);
+        }
+
+        public void SetAlgoParam(string axis, string name, double value)
+        {
+            CheckConnected();
+            // Valid axes: "ra", "x", "dec", "y"
+            axis = axis.ToLower();
+            if (!new[] { "ra", "x", "dec", "y" }.Contains(axis))
+                throw new PHD2Exception($"Invalid axis: {axis}. Valid axes are: ra, x, dec, y");
+
+            var param = new JArray { axis, name, value };
+            Call("set_algo_param", param);
+        }
+
+        public void SetVariableDelaySettings(bool enabled, int shortDelaySeconds, int longDelaySeconds)
+        {
+            CheckConnected();
+            var param = new JObject
+            {
+                ["Enabled"] = enabled,
+                ["ShortDelaySeconds"] = shortDelaySeconds,
+                ["LongDelaySeconds"] = longDelaySeconds
+            };
+            Call("set_variable_delay_settings", param);
+        }
+
+        public void SetConnectedEquipment(bool connected)
+        {
+            CheckConnected();
+            Call("set_connected", new JValue(connected));
+        }
+
+        public void SetProfile(int profileId)
+        {
+            CheckConnected();
+            Call("set_profile", new JValue(profileId));
+        }
+
+        public void SetPaused(bool paused, bool fullPause = false)
+        {
+            CheckConnected();
+            var param = fullPause ? new JArray { paused, "full" } : new JArray { paused };
+            Call("set_paused", param);
+        }
+
+        // Get methods for retrieving current settings
+        public int GetExposure()
+        {
+            CheckConnected();
+            var result = Call("get_exposure");
+            return (int)result["result"];
+        }
+
+        public string GetDecGuideMode()
+        {
+            CheckConnected();
+            var result = Call("get_dec_guide_mode");
+            return (string)result["result"];
+        }
+
+        public bool GetGuideOutputEnabled()
+        {
+            CheckConnected();
+            var result = Call("get_guide_output_enabled");
+            return (bool)result["result"];
+        }
+
+        public double[] GetLockPosition()
+        {
+            CheckConnected();
+            var result = Call("get_lock_position");
+            var pos = result["result"];
+            if (pos.Type == JTokenType.Null)
+                return null;
+            return new double[] { (double)pos[0], (double)pos[1] };
+        }
+
+        public bool GetLockShiftEnabled()
+        {
+            CheckConnected();
+            var result = Call("get_lock_shift_enabled");
+            return (bool)result["result"];
+        }
+
+        public JObject GetLockShiftParams()
+        {
+            CheckConnected();
+            var result = Call("get_lock_shift_params");
+            return (JObject)result["result"];
+        }
+
+        public double GetAlgoParam(string axis, string name)
+        {
+            CheckConnected();
+            axis = axis.ToLower();
+            if (!new[] { "ra", "x", "dec", "y" }.Contains(axis))
+                throw new PHD2Exception($"Invalid axis: {axis}. Valid axes are: ra, x, dec, y");
+
+            var param = new JArray { axis, name };
+            var result = Call("get_algo_param", param);
+            return (double)result["result"];
+        }
+
+        public string[] GetAlgoParamNames(string axis)
+        {
+            CheckConnected();
+            axis = axis.ToLower();
+            if (!new[] { "ra", "x", "dec", "y" }.Contains(axis))
+                throw new PHD2Exception($"Invalid axis: {axis}. Valid axes are: ra, x, dec, y");
+
+            var result = Call("get_algo_param_names", new JValue(axis));
+            return result["result"].ToObject<string[]>();
+        }
+
+        public JObject GetVariableDelaySettings()
+        {
+            CheckConnected();
+            var result = Call("get_variable_delay_settings");
+            return (JObject)result["result"];
+        }
+
+        public bool GetConnected()
+        {
+            CheckConnected();
+            var result = Call("get_connected");
+            return (bool)result["result"];
+        }
+
+        public bool GetPaused()
+        {
+            CheckConnected();
+            var result = Call("get_paused");
+            return (bool)result["result"];
         }
 
         private bool IsGuiding()

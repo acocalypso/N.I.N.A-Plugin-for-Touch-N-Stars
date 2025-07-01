@@ -29,6 +29,25 @@ Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/all-info" -Method GET
 - Guiding capabilities and state
 - Complete PHD2 control (start/stop guiding, dithering, etc.)
 - **⭐ Star lost detection with detailed information** (frame, time, SNR, error codes, etc.)
+- **🎛️ Full PHD2 parameter control** (all "set_" and "get_" methods from PHD2 API)
+
+### 🆕 Newly Supported PHD2 "set_" Parameter Methods
+
+The API now supports **ALL** PHD2 "set_" parameter methods documented in the official PHD2 EventMonitoring wiki:
+
+- ✅ `set_exposure` - Camera exposure time control
+- ✅ `set_dec_guide_mode` - Declination guiding mode (Off/Auto/North/South)
+- ✅ `set_guide_output_enabled` - Enable/disable guide output
+- ✅ `set_lock_position` - Set guide star lock position
+- ✅ `set_lock_shift_enabled` - Enable/disable lock shift
+- ✅ `set_lock_shift_params` - Configure lock shift parameters
+- ✅ `set_algo_param` - Set guide algorithm parameters
+- ✅ `set_variable_delay_settings` - Configure variable delay settings
+- ✅ `set_connected` - Connect/disconnect equipment
+- ✅ `set_paused` - Pause/unpause guiding
+- ✅ `set_profile` - Set equipment profile
+
+**Plus corresponding "get_" methods** for retrieving current parameter values.
 
 ## API Base URL
 
@@ -294,7 +313,466 @@ Returns comprehensive information about PHD2 in a single API call, including sta
 }
 ```
 
-## 🌟 Star Lost Detection
+## �️ PHD2 Parameter Control
+
+The API provides comprehensive control over PHD2 parameters through "set_" and "get_" methods, allowing advanced configuration of PHD2's behavior.
+
+### Camera Settings
+
+#### Set Camera Exposure
+```
+POST /phd2/set-exposure
+```
+Set the camera exposure time in milliseconds.
+
+**Request Body:**
+```json
+{
+  "exposure": 1000
+}
+```
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Message": "Exposure time set to 1000 ms"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2ExposureSet"
+}
+```
+
+#### Get Camera Exposure
+```
+GET /phd2/get-exposure
+```
+Get the current camera exposure time.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Exposure": 1000
+  },
+  "StatusCode": 200,
+  "Type": "PHD2Exposure"
+}
+```
+
+### Declination Guiding
+
+#### Set Declination Guide Mode
+```
+POST /phd2/set-dec-guide-mode
+```
+Set the declination guiding mode.
+
+**Request Body:**
+```json
+{
+  "mode": "Auto"
+}
+```
+
+**Valid modes:** `"Off"`, `"Auto"`, `"North"`, `"South"`
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Message": "Dec guide mode set to Auto"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2DecGuideModeSet"
+}
+```
+
+#### Get Declination Guide Mode
+```
+GET /phd2/get-dec-guide-mode
+```
+Get the current declination guide mode.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "DecGuideMode": "Auto"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2DecGuideMode"
+}
+```
+
+### Guide Output Control
+
+#### Set Guide Output
+```
+POST /phd2/set-guide-output
+```
+Enable or disable guide output.
+
+**Request Body:**
+```json
+{
+  "enabled": true
+}
+```
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Message": "Guide output enabled"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2GuideOutputSet"
+}
+```
+
+#### Get Guide Output Status
+```
+GET /phd2/get-guide-output
+```
+Get the current guide output status.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "GuideOutputEnabled": true
+  },
+  "StatusCode": 200,
+  "Type": "PHD2GuideOutput"
+}
+```
+
+### Lock Position Control
+
+#### Set Lock Position
+```
+POST /phd2/set-lock-position
+```
+Set the guide star lock position.
+
+**Request Body:**
+```json
+{
+  "x": 100.5,
+  "y": 200.3,
+  "exact": true
+}
+```
+
+**Parameters:**
+- `x`, `y`: Lock position coordinates
+- `exact` (optional): If true (default), move to exact coordinates. If false, move current position to coordinates and set lock position to guide star if in range.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Message": "Lock position set to (100.5, 200.3), exact=true"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2LockPositionSet"
+}
+```
+
+#### Get Lock Position
+```
+GET /phd2/get-lock-position
+```
+Get the current lock position.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "X": 100.5,
+    "Y": 200.3
+  },
+  "StatusCode": 200,
+  "Type": "PHD2LockPosition"
+}
+```
+
+### Lock Shift Settings
+
+#### Set Lock Shift Enabled
+```
+POST /phd2/set-lock-shift
+```
+Enable or disable lock shift.
+
+**Request Body:**
+```json
+{
+  "enabled": true
+}
+```
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Message": "Lock shift enabled"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2LockShiftSet"
+}
+```
+
+#### Set Lock Shift Parameters
+```
+POST /phd2/set-lock-shift-params
+```
+Configure lock shift parameters.
+
+**Request Body:**
+```json
+{
+  "xRate": 1.10,
+  "yRate": 4.50,
+  "units": "arcsec/hr",
+  "axes": "RA/Dec"
+}
+```
+
+**Parameters:**
+- `xRate`, `yRate`: Rate values for X and Y axes
+- `units` (optional): `"arcsec/hr"` or `"pixels/hr"` (default: `"arcsec/hr"`)
+- `axes` (optional): `"RA/Dec"` or `"X/Y"` (default: `"RA/Dec"`)
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Message": "Lock shift parameters set: xRate=1.1, yRate=4.5, units=arcsec/hr, axes=RA/Dec"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2LockShiftParamsSet"
+}
+```
+
+#### Get Lock Shift Status
+```
+GET /phd2/get-lock-shift
+```
+Get the current lock shift enabled status.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "LockShiftEnabled": true
+  },
+  "StatusCode": 200,
+  "Type": "PHD2LockShift"
+}
+```
+
+#### Get Lock Shift Parameters
+```
+GET /phd2/get-lock-shift-params
+```
+Get the current lock shift parameters.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "enabled": true,
+    "rate": [1.10, 4.50],
+    "units": "arcsec/hr",
+    "axes": "RA/Dec"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2LockShiftParams"
+}
+```
+
+### Guide Algorithm Parameters
+
+#### Set Algorithm Parameter
+```
+POST /phd2/set-algo-param
+```
+Set a guide algorithm parameter for a specific axis.
+
+**Request Body:**
+```json
+{
+  "axis": "ra",
+  "name": "MinMove",
+  "value": 0.15
+}
+```
+
+**Parameters:**
+- `axis`: `"ra"`, `"x"`, `"dec"`, or `"y"`
+- `name`: Parameter name (use Get Algorithm Parameter Names to see available parameters)
+- `value`: Parameter value
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Message": "Algorithm parameter set: ra.MinMove = 0.15"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2AlgoParamSet"
+}
+```
+
+#### Get Algorithm Parameter Names
+```
+GET /phd2/get-algo-param-names?axis=ra
+```
+Get the list of available algorithm parameter names for an axis.
+
+**Query Parameters:**
+- `axis`: `"ra"`, `"x"`, `"dec"`, or `"y"`
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Axis": "ra",
+    "ParameterNames": ["MinMove", "MaxMove", "Aggression", "Hysteresis"]
+  },
+  "StatusCode": 200,
+  "Type": "PHD2AlgoParamNames"
+}
+```
+
+#### Get Algorithm Parameter
+```
+GET /phd2/get-algo-param?axis=ra&name=MinMove
+```
+Get the value of a specific algorithm parameter.
+
+**Query Parameters:**
+- `axis`: `"ra"`, `"x"`, `"dec"`, or `"y"`
+- `name`: Parameter name
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Axis": "ra",
+    "Name": "MinMove",
+    "Value": 0.15
+  },
+  "StatusCode": 200,
+  "Type": "PHD2AlgoParam"
+}
+```
+
+### Variable Delay Settings
+
+#### Set Variable Delay Settings
+```
+POST /phd2/set-variable-delay
+```
+Configure variable delay settings.
+
+**Request Body:**
+```json
+{
+  "enabled": true,
+  "shortDelaySeconds": 2,
+  "longDelaySeconds": 10
+}
+```
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Message": "Variable delay settings updated: enabled=true, short=2s, long=10s"
+  },
+  "StatusCode": 200,
+  "Type": "PHD2VariableDelaySet"
+}
+```
+
+#### Get Variable Delay Settings
+```
+GET /phd2/get-variable-delay
+```
+Get the current variable delay settings.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Enabled": true,
+    "ShortDelaySeconds": 2,
+    "LongDelaySeconds": 10
+  },
+  "StatusCode": 200,
+  "Type": "PHD2VariableDelay"
+}
+```
+
+### Connection Status
+
+#### Get Equipment Connection Status
+```
+GET /phd2/get-connected
+```
+Get the current equipment connection status.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Connected": true
+  },
+  "StatusCode": 200,
+  "Type": "PHD2Connected"
+}
+```
+
+#### Get Paused Status
+```
+GET /phd2/get-paused
+```
+Get the current paused status.
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "Paused": false
+  },
+  "StatusCode": 200,
+  "Type": "PHD2Paused"
+}
+```
+
+## �🌟 Star Lost Detection
 
 The API provides comprehensive star lost detection with detailed diagnostic information:
 

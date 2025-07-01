@@ -379,13 +379,10 @@ namespace TouchNStars.Server
                     {
                         if (client == null || !client.IsConnected)
                         {
-                            lastError = "PHD2 is not connected";
-                            return 0.0;
+                            throw new InvalidOperationException("PHD2 not connected");
                         }
 
-                        var pixelScale = client.GetPixelScale();
-                        lastError = null;
-                        return pixelScale;
+                        return client.GetPixelScale();
                     }
                 }
                 catch (Exception ex)
@@ -393,6 +390,491 @@ namespace TouchNStars.Server
                     lastError = ex.Message;
                     Logger.Error($"Failed to get pixel scale: {ex}");
                     return 0.0;
+                }
+            });
+        }
+
+        // PHD2 "set_" methods
+        public async Task SetExposureAsync(int exposureMs)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        client.SetExposure(exposureMs);
+                        lastError = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to set exposure: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task SetDecGuideModeAsync(string mode)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        client.SetDecGuideMode(mode);
+                        lastError = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to set Dec guide mode: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task SetGuideOutputEnabledAsync(bool enabled)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        client.SetGuideOutputEnabled(enabled);
+                        lastError = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to set guide output enabled: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task SetLockPositionAsync(double x, double y, bool exact = true)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        client.SetLockPosition(x, y, exact);
+                        lastError = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to set lock position: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task SetLockShiftEnabledAsync(bool enabled)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        client.SetLockShiftEnabled(enabled);
+                        lastError = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to set lock shift enabled: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task SetLockShiftParamsAsync(double xRate, double yRate, string units = "arcsec/hr", string axes = "RA/Dec")
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        client.SetLockShiftParams(xRate, yRate, units, axes);
+                        lastError = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to set lock shift params: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task SetAlgoParamAsync(string axis, string name, double value)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        client.SetAlgoParam(axis, name, value);
+                        lastError = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to set algorithm parameter: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task SetVariableDelaySettingsAsync(bool enabled, int shortDelaySeconds, int longDelaySeconds)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        client.SetVariableDelaySettings(enabled, shortDelaySeconds, longDelaySeconds);
+                        lastError = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to set variable delay settings: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        // PHD2 "get_" methods
+        public async Task<int> GetExposureAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetExposure();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get exposure: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<string> GetDecGuideModeAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetDecGuideMode();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get Dec guide mode: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<bool> GetGuideOutputEnabledAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetGuideOutputEnabled();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get guide output enabled: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<double[]> GetLockPositionAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetLockPosition();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get lock position: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<bool> GetLockShiftEnabledAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetLockShiftEnabled();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get lock shift enabled: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<object> GetLockShiftParamsAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetLockShiftParams();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get lock shift params: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<string[]> GetAlgoParamNamesAsync(string axis)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetAlgoParamNames(axis);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get algorithm parameter names: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<double> GetAlgoParamAsync(string axis, string name)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetAlgoParam(axis, name);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get algorithm parameter: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<object> GetVariableDelaySettingsAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetVariableDelaySettings();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get variable delay settings: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<bool> GetConnectedAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetConnected();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get connected status: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        public async Task<bool> GetPausedAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetPaused();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get paused status: {ex}");
+                    throw;
                 }
             });
         }
