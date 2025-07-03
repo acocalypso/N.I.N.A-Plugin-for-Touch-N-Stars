@@ -1439,9 +1439,18 @@ public class Controller : WebApiController {
             
             return new ApiResponse {
                 Success = true,
-                Response = new { AlgoParamSet = new { Axis = axis, Name = name, Value = value } },
+                Response = new { Message = $"Algorithm parameter set: {axis}.{name} = {value}" },
                 StatusCode = 200,
-                Type = "PHD2Parameter"
+                Type = "PHD2AlgoParamSet"
+            };
+        } catch (PHD2Exception ex) when (ex.Message.Contains("Invalid axis")) {
+            // Expected behavior for invalid axis parameter
+            HttpContext.Response.StatusCode = 400;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 400,
+                Type = "PHD2InvalidAxis"
             };
         } catch (Exception ex) {
             Logger.Error(ex);
@@ -1464,7 +1473,16 @@ public class Controller : WebApiController {
                 Success = true,
                 Response = new { Axis = axis, ParameterNames = paramNames },
                 StatusCode = 200,
-                Type = "PHD2Parameter"
+                Type = "PHD2AlgoParamNames"
+            };
+        } catch (PHD2Exception ex) when (ex.Message.Contains("Invalid axis")) {
+            // Expected behavior for invalid axis parameter
+            HttpContext.Response.StatusCode = 400;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 400,
+                Type = "PHD2InvalidAxis"
             };
         } catch (Exception ex) {
             Logger.Error(ex);
@@ -1487,7 +1505,16 @@ public class Controller : WebApiController {
                 Success = true,
                 Response = new { Axis = axis, Name = name, Value = value },
                 StatusCode = 200,
-                Type = "PHD2Parameter"
+                Type = "PHD2AlgoParam"
+            };
+        } catch (PHD2Exception ex) when (ex.Message.Contains("Invalid axis") || ex.Message.Contains("could not get param")) {
+            // Expected behavior for invalid axis or parameter names
+            HttpContext.Response.StatusCode = 400;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 400,
+                Type = ex.Message.Contains("Invalid axis") ? "PHD2InvalidAxis" : "PHD2ParamNotFound"
             };
         } catch (Exception ex) {
             Logger.Error(ex);
@@ -1531,9 +1558,18 @@ public class Controller : WebApiController {
             
             return new ApiResponse {
                 Success = true,
-                Response = new { VariableDelaySettingsSet = new { Enabled = enabled, ShortDelaySeconds = shortDelaySeconds, LongDelaySeconds = longDelaySeconds } },
+                Response = new { Message = $"Variable delay settings updated: enabled={enabled}, short={shortDelaySeconds}s, long={longDelaySeconds}s" },
                 StatusCode = 200,
-                Type = "PHD2Parameter"
+                Type = "PHD2VariableDelaySet"
+            };
+        } catch (PHD2Exception ex) when (ex.Message.Contains("method not found")) {
+            // Expected behavior for unsupported PHD2 versions
+            HttpContext.Response.StatusCode = 400;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 400,
+                Type = "PHD2MethodNotFound"
             };
         } catch (Exception ex) {
             Logger.Error(ex);
@@ -1554,9 +1590,18 @@ public class Controller : WebApiController {
             
             return new ApiResponse {
                 Success = true,
-                Response = new { VariableDelaySettings = settings },
+                Response = settings,
                 StatusCode = 200,
-                Type = "PHD2Parameter"
+                Type = "PHD2VariableDelay"
+            };
+        } catch (PHD2Exception ex) when (ex.Message.Contains("method not found")) {
+            // Expected behavior for unsupported PHD2 versions
+            HttpContext.Response.StatusCode = 400;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 400,
+                Type = "PHD2MethodNotFound"
             };
         } catch (Exception ex) {
             Logger.Error(ex);

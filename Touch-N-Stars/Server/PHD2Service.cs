@@ -628,6 +628,13 @@ namespace TouchNStars.Server
                         lastError = null;
                     }
                 }
+                catch (PHD2Exception ex) when (ex.Message.Contains("Invalid axis"))
+                {
+                    // This is expected behavior for invalid axis names
+                    lastError = ex.Message;
+                    Logger.Debug($"PHD2 invalid axis: {ex.Message}");
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     lastError = ex.Message;
@@ -653,6 +660,13 @@ namespace TouchNStars.Server
                         client.SetVariableDelaySettings(enabled, shortDelaySeconds, longDelaySeconds);
                         lastError = null;
                     }
+                }
+                catch (PHD2Exception ex) when (ex.Message.Contains("method not found"))
+                {
+                    // This is expected behavior for unsupported PHD2 versions
+                    lastError = ex.Message;
+                    Logger.Debug($"PHD2 method not supported: {ex.Message}");
+                    throw;
                 }
                 catch (Exception ex)
                 {
@@ -830,6 +844,13 @@ namespace TouchNStars.Server
                         return client.GetAlgoParamNames(axis);
                     }
                 }
+                catch (PHD2Exception ex) when (ex.Message.Contains("Invalid axis"))
+                {
+                    // This is expected behavior for invalid axis names
+                    lastError = ex.Message;
+                    Logger.Debug($"PHD2 invalid axis: {ex.Message}");
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     lastError = ex.Message;
@@ -855,6 +876,13 @@ namespace TouchNStars.Server
                         return client.GetAlgoParam(axis, name);
                     }
                 }
+                catch (PHD2Exception ex) when (ex.Message.Contains("Invalid axis") || ex.Message.Contains("could not get param"))
+                {
+                    // This is expected behavior for invalid axis or parameter names
+                    lastError = ex.Message;
+                    Logger.Debug($"PHD2 parameter error: {ex.Message}");
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     lastError = ex.Message;
@@ -879,6 +907,13 @@ namespace TouchNStars.Server
 
                         return client.GetVariableDelaySettings();
                     }
+                }
+                catch (PHD2Exception ex) when (ex.Message.Contains("method not found"))
+                {
+                    // This is expected behavior for older PHD2 versions
+                    lastError = ex.Message;
+                    Logger.Debug($"PHD2 method not supported: {ex.Message}");
+                    throw;
                 }
                 catch (Exception ex)
                 {
