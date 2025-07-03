@@ -301,6 +301,34 @@ namespace TouchNStars.Server
             });
         }
 
+        public async Task<bool> DisconnectEquipmentAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            lastError = "PHD2 is not connected";
+                            return false;
+                        }
+
+                        client.DisconnectEquipment();
+                        lastError = null;
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to disconnect equipment: {ex}");
+                    return false;
+                }
+            });
+        }
+
         public async Task<PHD2Status> GetStatusAsync()
         {
             return await Task.Run(() =>
@@ -494,6 +522,38 @@ namespace TouchNStars.Server
                 {
                     lastError = ex.Message;
                     Logger.Error($"Failed to set lock position: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Auto-select a star using PHD2's find_star method
+        /// </summary>
+        /// <param name="roi">Optional region of interest [x, y, width, height]. If null, uses full frame.</param>
+        /// <returns>The lock position coordinates [x, y] of the selected star</returns>
+        public async Task<double[]> FindStarAsync(int[] roi = null)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        var result = client.FindStar(roi);
+                        lastError = null;
+                        return result;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to find star: {ex}");
                     throw;
                 }
             });

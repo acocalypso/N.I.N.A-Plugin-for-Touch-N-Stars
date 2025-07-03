@@ -602,6 +602,13 @@ namespace TouchNStars.PHD2
             Call("set_connected", new JValue(true));
         }
 
+        public void DisconnectEquipment()
+        {
+            CheckConnected();
+            StopCapture();
+            Call("set_connected", new JValue(false));
+        }
+
         public double GetPixelScale()
         {
             CheckConnected();
@@ -813,6 +820,38 @@ namespace TouchNStars.PHD2
             CheckConnected();
             var result = Call("get_paused");
             return (bool)result["result"];
+        }
+
+        /// <summary>
+        /// Auto-select a star. If ROI is provided, star selection will be confined to the specified region.
+        /// </summary>
+        /// <param name="roi">Optional region of interest [x, y, width, height]. If null, uses full frame.</param>
+        /// <returns>The lock position coordinates [x, y] of the selected star</returns>
+        public double[] FindStar(int[] roi = null)
+        {
+            CheckConnected();
+            
+            JObject result;
+            if (roi != null)
+            {
+                if (roi.Length != 4)
+                    throw new PHD2Exception("ROI must be an array of 4 integers: [x, y, width, height]");
+                
+                var roiParam = new JArray { roi[0], roi[1], roi[2], roi[3] };
+                result = Call("find_star", new JObject { ["roi"] = roiParam });
+            }
+            else
+            {
+                result = Call("find_star");
+            }
+            
+            var pos = result["result"];
+            if (pos.Type == JTokenType.Array && pos.Count() == 2)
+            {
+                return new double[] { (double)pos[0], (double)pos[1] };
+            }
+            
+            throw new PHD2Exception("find_star did not return valid coordinates");
         }
 
         private bool IsGuiding()

@@ -590,6 +590,29 @@ public class Controller : WebApiController {
         }
     }
 
+    [Route(HttpVerbs.Post, "/phd2/disconnect-equipment")]
+    public async Task<ApiResponse> DisconnectPHD2Equipment() {
+        try {
+            bool result = await phd2Service.DisconnectEquipmentAsync();
+            
+            return new ApiResponse {
+                Success = result,
+                Response = new { EquipmentDisconnected = result, Error = phd2Service.LastError },
+                StatusCode = result ? 200 : 400,
+                Type = "PHD2Equipment"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
     [Route(HttpVerbs.Post, "/phd2/start-guiding")]
     public async Task<ApiResponse> StartPHD2Guiding() {
         try {
@@ -1165,6 +1188,69 @@ public class Controller : WebApiController {
                 Response = new { LockPosition = new { X = position[0], Y = position[1] } },
                 StatusCode = 200,
                 Type = "PHD2Parameter"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/find-star")]
+    public async Task<ApiResponse> FindPHD2Star() {
+        try {
+            var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
+            int[] roi = null;
+            
+            // Parse optional ROI parameter
+            if (requestData != null && requestData.ContainsKey("roi") && requestData["roi"] != null) {
+                try {
+                    var roiData = requestData["roi"];
+                    if (roiData is Newtonsoft.Json.Linq.JArray roiArray && roiArray.Count == 4) {
+                        roi = new int[4];
+                        for (int i = 0; i < 4; i++) {
+                            roi[i] = (int)roiArray[i];
+                        }
+                    } else if (roiData is System.Collections.Generic.List<object> roiList && roiList.Count == 4) {
+                        roi = new int[4];
+                        for (int i = 0; i < 4; i++) {
+                            roi[i] = Convert.ToInt32(roiList[i]);
+                        }
+                    } else {
+                        HttpContext.Response.StatusCode = 400;
+                        return new ApiResponse {
+                            Success = false,
+                            Error = "roi must be an array of 4 integers: [x, y, width, height]",
+                            StatusCode = 400,
+                            Type = "Error"
+                        };
+                    }
+                } catch {
+                    HttpContext.Response.StatusCode = 400;
+                    return new ApiResponse {
+                        Success = false,
+                        Error = "roi must be an array of 4 integers: [x, y, width, height]",
+                        StatusCode = 400,
+                        Type = "Error"
+                    };
+                }
+            }
+
+            var position = await phd2Service.FindStarAsync(roi);
+            
+            return new ApiResponse {
+                Success = true,
+                Response = new { 
+                    StarPosition = new { X = position[0], Y = position[1] },
+                    ROI = roi != null ? new { X = roi[0], Y = roi[1], Width = roi[2], Height = roi[3] } : null
+                },
+                StatusCode = 200,
+                Type = "PHD2StarSelection"
             };
         } catch (Exception ex) {
             Logger.Error(ex);

@@ -141,6 +141,31 @@ Connects equipment using the specified profile.
 }
 ```
 
+#### Disconnect Equipment
+```
+POST /phd2/disconnect-equipment
+```
+Disconnects all equipment in PHD2.
+
+**Example curl command:**
+```bash
+curl -X POST "http://localhost:5000/api/phd2/disconnect-equipment" \
+     -H "Content-Type: application/json"
+```
+
+**Response:**
+```json
+{
+  "Success": true,
+  "Response": {
+    "EquipmentDisconnected": true,
+    "Error": null
+  },
+  "StatusCode": 200,
+  "Type": "PHD2Equipment"
+}
+```
+
 ### Guiding Control
 
 #### Start Guiding
@@ -912,55 +937,8 @@ $allInfo.Response | ConvertTo-Json -Depth 10
 #         "CanLoop": false
 #     }
 # }
-```
 
-### cURL Examples
-
-```bash
-# Connect to PHD2 (Windows Command Prompt/PowerShell)
-curl -X POST "http://localhost:5000/api/phd2/connect" -H "Content-Type: application/json" -d "{\"hostname\": \"localhost\", \"instance\": 1}"
-
-# Get PHD2 status
-curl http://localhost:5000/api/phd2/all-info
-
-# Start guiding
-curl -X POST "http://localhost:5000/api/phd2/start-guiding" -H "Content-Type: application/json" -d "{\"settlePixels\": 2.0, \"settleTime\": 10.0, \"settleTimeout\": 100.0}"
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-1. **"PHD2 is not connected" Error**
-   - Make sure PHD2 is running
-   - Call `/api/phd2/connect` first before using other endpoints
-   - Check that PHD2 is listening on port 4400: `netstat -an | findstr "4400"`
-
-2. **Connection Refused**
-   - Verify PHD2 is running and server mode is enabled
-   - Check firewall settings
-   - Ensure PHD2 is on the correct instance (port 4400 + instance - 1)
-
-3. **API Returns Empty/Null Data**
-   - Connect to PHD2 first using `/api/phd2/connect`
-   - The API only provides real-time data after establishing a connection
-
-### Verification Steps
-
-1. **Check PHD2 is listening:**
-   ```powershell
-   netstat -an | findstr "4400"
-   # Should show: TCP    0.0.0.0:4400    0.0.0.0:0    LISTENING
-   ```
-
-2. **Test basic connectivity:**
-   ```powershell
-   Test-NetConnection -ComputerName localhost -Port 4400
-   ```
-
-3. **Verify API connectivity:**
-   ```powershell
-   Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/connect" -Method POST -ContentType "application/json" -Body '{"hostname": "localhost", "instance": 1}'
-   ```
-
-For more detailed PHD2 API documentation, see: https://github.com/OpenPHDGuiding/phd2/wiki/EventMonitoring
+# Equipment management workflow
+# 1. Get available profiles
+$profiles = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/profiles" -Method GET
+Write-Host "Available profiles: $($profiles.Response -join ', ')"
