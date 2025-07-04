@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using NINA.Core.Utility;
 using TouchNStars.PHD2;
@@ -624,7 +625,40 @@ namespace TouchNStars.Server
                             throw new InvalidOperationException("PHD2 not connected");
                         }
 
-                        client.SetAlgoParam(axis, name, value);
+                        // Log the exact value being sent
+                        Logger.Info($"Setting PHD2 algorithm parameter {axis}.{name} = {value:F10} (raw: {value})");
+                        
+                        // Round to a reasonable precision to avoid floating-point precision issues
+                        // PHD2 typically works with values to 2-3 decimal places
+                        double roundedValue = Math.Round(value, 3);
+                        
+                        // Add a tiny offset to all values to avoid PHD2's internal floating-point precision issues
+                        // This ensures we don't hit any problematic decimal representations
+                        // Use 0.001 offset which will survive the 3-decimal rounding
+                        double adjustedValue = roundedValue + 0.001;
+                        
+                        Logger.Info($"Adjusted value from {roundedValue:F4} to {adjustedValue:F4} to avoid PHD2 floating-point issues");
+                        
+                        roundedValue = adjustedValue;
+
+                        client.SetAlgoParam(axis, name, roundedValue);
+                        
+                        // Read back the value to verify what PHD2 actually received
+                        try
+                        {
+                            var actualValue = client.GetAlgoParam(axis, name);
+                            Logger.Info($"PHD2 confirmed parameter {axis}.{name} = {actualValue:F10} (expected: {roundedValue:F10})");
+                            
+                            if (Math.Abs(actualValue - roundedValue) > 0.001)
+                            {
+                                Logger.Warning($"Value mismatch! Sent: {roundedValue:F10}, Got back: {actualValue:F10}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warning($"Could not read back parameter value: {ex.Message}");
+                        }
+                        
                         lastError = null;
                     }
                 }

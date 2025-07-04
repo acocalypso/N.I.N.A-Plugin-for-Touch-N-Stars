@@ -252,6 +252,12 @@ namespace TouchNStars.PHD2
         {
             string jsonRpc = MakeJsonRpc(method, param);
             Debug.WriteLine($"PHD2 Call: {jsonRpc}");
+            
+            // Also log to NINA logger for better visibility
+            if (method == "set_algo_param")
+            {
+                System.Diagnostics.Trace.WriteLine($"PHD2 JSON-RPC: {jsonRpc}");
+            }
 
             connection.WriteLine(jsonRpc);
 
@@ -697,7 +703,15 @@ namespace TouchNStars.PHD2
             if (!new[] { "ra", "x", "dec", "y" }.Contains(axis))
                 throw new PHD2Exception($"Invalid axis: {axis}. Valid axes are: ra, x, dec, y");
 
-            var param = new JArray { axis, name, value };
+            // Round to 3 decimal places to avoid floating point precision issues
+            double roundedValue = Math.Round(value, 3);
+            
+            var param = new JArray { axis, name, roundedValue };
+            
+            // Log the exact JSON being sent to PHD2
+            Debug.WriteLine($"PHD2 SetAlgoParam: axis={axis}, name={name}, original={value:F10}, rounded={roundedValue:F10}");
+            Debug.WriteLine($"PHD2 SetAlgoParam JSON: {param.ToString()}");
+            
             Call("set_algo_param", param);
         }
 
