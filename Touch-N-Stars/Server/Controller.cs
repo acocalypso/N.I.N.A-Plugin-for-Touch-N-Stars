@@ -1660,4 +1660,45 @@ public class Controller : WebApiController {
             };
         }
     }
+
+    [Route(HttpVerbs.Get, "/phd2/get-current-equipment")]
+    public async Task<ApiResponse> GetPHD2CurrentEquipment()
+    {
+        try
+        {
+            // Check if PHD2 is connected first
+            if (!phd2Service.IsConnected)
+            {
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "PHD2 is not connected",
+                    StatusCode = 400,
+                    Type = "PHD2NotConnected"
+                };
+            }
+            
+            var equipment = await phd2Service.GetCurrentEquipmentAsync();
+            
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new { CurrentEquipment = equipment },
+                StatusCode = 200,
+                Type = "PHD2CurrentEquipment"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Error getting current equipment: {ex}");
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
 }

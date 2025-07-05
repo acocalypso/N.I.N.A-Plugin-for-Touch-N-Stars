@@ -369,6 +369,62 @@ curl -X POST "http://localhost:5000/api/phd2/disconnect-equipment" \
 
 ---
 
+#### 📊 Get Current Equipment
+**`GET /api/phd2/get-current-equipment`**
+
+Retrieves information about currently connected equipment in PHD2.
+
+<details>
+<summary><strong>💻 cURL Example</strong></summary>
+
+```bash
+curl -X GET "http://localhost:5000/api/phd2/get-current-equipment" \
+     -H "Content-Type: application/json"
+```
+
+</details>
+
+<details>
+<summary><strong>🔧 PowerShell Example</strong></summary>
+
+```powershell
+# Get current equipment information
+Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/get-current-equipment" -Method GET
+```
+
+</details>
+
+<details>
+<summary><strong>✅ Response Example</strong></summary>
+
+```json
+{
+  "Success": true,
+  "Response": {
+    "CurrentEquipment": {
+      "camera": {
+        "name": "Simulator",
+        "connected": true
+      },
+      "mount": {
+        "name": "On Camera",
+        "connected": true
+      },
+      "aux_mount": {
+        "name": "Simulator (ASCOM)",
+        "connected": true
+      }
+    }
+  },
+  "StatusCode": 200,
+  "Type": "PHD2CurrentEquipment"
+}
+```
+
+</details>
+
+---
+
 ### Guiding Control
 
 #### 🎯 Start Guiding
@@ -1720,9 +1776,7 @@ try {
     
     # 4. Set exposure
     Write-Host "⏱️ Setting exposure time..." -ForegroundColor Yellow
-    $setExp = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/set-exposure" `
-        -Method POST -ContentType "application/json" `
-        -Body "{`"seconds`": $ExposureTime}"
+    $setExp = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/set-exposure" -Method POST -ContentType "application/json" -Body "{`"seconds`": $ExposureTime}"
     
     Write-Host "✅ Exposure set: $ExposureTime seconds" -ForegroundColor Green
     
@@ -2191,7 +2245,7 @@ Monitor-GuidingPerformance
    $setAggression = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/set-algo-param" `
        -Method POST -ContentType "application/json" `
        -Body '{"axis": "ra", "name": "Aggression", "value": 60}'
-   
+
    # Increase minimum move threshold to reduce noise
    $setMinMove = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/set-algo-param" `
        -Method POST -ContentType "application/json" `

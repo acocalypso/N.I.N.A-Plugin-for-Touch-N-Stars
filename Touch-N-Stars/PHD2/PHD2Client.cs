@@ -836,6 +836,74 @@ namespace TouchNStars.PHD2
             return (bool)result["result"];
         }
 
+        public object GetCurrentEquipment()
+        {
+            CheckConnected();
+            var result = Call("get_current_equipment");
+            
+            var equipmentObj = new Dictionary<string, object>();
+            var resultData = result["result"];
+            
+            // PHD2's get_current_equipment can return different formats:
+            // Format 1: Array of arrays [["Camera", "camera_name"], ["Mount", "mount_name"], ...]
+            // Format 2: Object with device names as keys {"Camera": "camera_name", "Mount": "mount_name", ...}
+            
+            if (resultData is JArray equipmentArray)
+            {
+                // Handle array format
+                foreach (JArray item in equipmentArray)
+                {
+                    if (item.Count >= 2)
+                    {
+                        string deviceType = item[0].ToString().ToLower();
+                        string deviceName = item[1].ToString();
+                        
+                        equipmentObj[deviceType] = new Dictionary<string, object>
+                        {
+                            ["name"] = deviceName,
+                            ["connected"] = !string.IsNullOrEmpty(deviceName)
+                        };
+                    }
+                }
+            }
+            else if (resultData is JObject equipmentDict)
+            {
+                // Handle object format
+                foreach (var kvp in equipmentDict)
+                {
+                    string deviceType = kvp.Key.ToLower();
+                    string deviceName = kvp.Value?.ToString() ?? "";
+                    
+                    // Clean up the device name if it contains JSON formatting
+                    if (deviceName.Contains("\"name\""))
+                    {
+                        try
+                        {
+                            var parsed = JObject.Parse(deviceName);
+                            deviceName = parsed["name"]?.ToString() ?? "";
+                        }
+                        catch
+                        {
+                            // If parsing fails, use the original value
+                        }
+                    }
+                    
+                    equipmentObj[deviceType] = new Dictionary<string, object>
+                    {
+                        ["name"] = deviceName,
+                        ["connected"] = !string.IsNullOrEmpty(deviceName)
+                    };
+                }
+            }
+            else
+            {
+                // Unknown format, return empty equipment list
+                System.Diagnostics.Debug.WriteLine($"Unknown equipment format: {resultData?.Type}");
+            }
+            
+            return equipmentObj;
+        }
+
         /// <summary>
         /// Auto-select a star. If ROI is provided, star selection will be confined to the specified region.
         /// </summary>

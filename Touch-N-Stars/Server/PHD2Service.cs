@@ -1008,6 +1008,31 @@ namespace TouchNStars.Server
             });
         }
 
+        public async Task<object> GetCurrentEquipmentAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetCurrentEquipment();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get current equipment: {ex}");
+                    throw;
+                }
+            });
+        }
+
         public void Dispose()
         {
             try
