@@ -844,13 +844,53 @@ namespace TouchNStars.PHD2
             var equipmentObj = new Dictionary<string, object>();
             var resultData = result["result"];
             
-            // PHD2's get_current_equipment can return different formats:
-            // Format 1: Array of arrays [["Camera", "camera_name"], ["Mount", "mount_name"], ...]
-            // Format 2: Object with device names as keys {"Camera": "camera_name", "Mount": "mount_name", ...}
+            // PHD2's get_current_equipment returns an object with device info including connection status
+            // Format: {"camera": {"name": "Simulator", "connected": true}, "mount": {"name": "On Camera", "connected": true}, ...}
             
-            if (resultData is JArray equipmentArray)
+            if (resultData is JObject equipmentDict)
             {
-                // Handle array format
+                // Handle the standard object format returned by PHD2
+                foreach (var kvp in equipmentDict)
+                {
+                    string deviceType = kvp.Key.ToLower();
+                    
+                    if (kvp.Value is JObject deviceInfo)
+                    {
+                        // PHD2 returns device info as an object with name and connected properties
+                        var deviceObj = new Dictionary<string, object>();
+                        
+                        if (deviceInfo["name"] != null)
+                        {
+                            deviceObj["name"] = deviceInfo["name"].ToString();
+                        }
+                        
+                        if (deviceInfo["connected"] != null)
+                        {
+                            deviceObj["connected"] = deviceInfo["connected"].Value<bool>();
+                        }
+                        else
+                        {
+                            // Fallback: if connected field is missing, assume connected if device has a name
+                            deviceObj["connected"] = !string.IsNullOrEmpty(deviceObj.ContainsKey("name") ? deviceObj["name"].ToString() : "");
+                        }
+                        
+                        equipmentObj[deviceType] = deviceObj;
+                    }
+                    else
+                    {
+                        // Legacy format: just device name as string
+                        string deviceName = kvp.Value?.ToString() ?? "";
+                        equipmentObj[deviceType] = new Dictionary<string, object>
+                        {
+                            ["name"] = deviceName,
+                            ["connected"] = !string.IsNullOrEmpty(deviceName)
+                        };
+                    }
+                }
+            }
+            else if (resultData is JArray equipmentArray)
+            {
+                // Handle legacy array format [["Camera", "camera_name"], ["Mount", "mount_name"], ...]
                 foreach (JArray item in equipmentArray)
                 {
                     if (item.Count >= 2)
@@ -864,35 +904,6 @@ namespace TouchNStars.PHD2
                             ["connected"] = !string.IsNullOrEmpty(deviceName)
                         };
                     }
-                }
-            }
-            else if (resultData is JObject equipmentDict)
-            {
-                // Handle object format
-                foreach (var kvp in equipmentDict)
-                {
-                    string deviceType = kvp.Key.ToLower();
-                    string deviceName = kvp.Value?.ToString() ?? "";
-                    
-                    // Clean up the device name if it contains JSON formatting
-                    if (deviceName.Contains("\"name\""))
-                    {
-                        try
-                        {
-                            var parsed = JObject.Parse(deviceName);
-                            deviceName = parsed["name"]?.ToString() ?? "";
-                        }
-                        catch
-                        {
-                            // If parsing fails, use the original value
-                        }
-                    }
-                    
-                    equipmentObj[deviceType] = new Dictionary<string, object>
-                    {
-                        ["name"] = deviceName,
-                        ["connected"] = !string.IsNullOrEmpty(deviceName)
-                    };
                 }
             }
             else
