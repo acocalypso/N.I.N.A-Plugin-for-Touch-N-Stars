@@ -425,6 +425,51 @@ Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/get-current-equipment" -M
 
 ---
 
+#### 📋 Get Current Profile
+**`GET /api/phd2/get-profile`**
+
+Retrieves information about the currently selected equipment profile in PHD2.
+
+<details>
+<summary><strong>💻 cURL Example</strong></summary>
+
+```bash
+curl -X GET "http://localhost:5000/api/phd2/get-profile" \
+     -H "Content-Type: application/json"
+```
+
+</details>
+
+<details>
+<summary><strong>🔧 PowerShell Example</strong></summary>
+
+```powershell
+# Get current profile information
+Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/get-profile" -Method GET
+```
+
+</details>
+
+<details>
+<summary><strong>✅ Response Example</strong></summary>
+
+```json
+{
+  "Success": true,
+  "Response": {
+    "Profile": {
+      "id": 2,
+      "name": "My Camera Setup"
+    }
+  },
+  "StatusCode": 200,
+  "Type": "PHD2Profile"
+}
+```
+</details>
+
+---
+
 ### Guiding Control
 
 #### 🎯 Start Guiding
@@ -1836,6 +1881,30 @@ try {
 Write-Host "📋 Available Equipment Profiles:" -ForegroundColor Cyan
 $profiles = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/profiles" -Method GET
 $profiles.Response | ForEach-Object { Write-Host "  • $_" -ForegroundColor White }
+
+# Get current profile information
+Write-Host "📋 Current Equipment Profile:" -ForegroundColor Cyan
+$currentProfile = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/get-profile" -Method GET
+if ($currentProfile.Success) {
+    Write-Host "  • ID: $($currentProfile.Response.Profile.id)" -ForegroundColor White
+    Write-Host "  • Name: $($currentProfile.Response.Profile.name)" -ForegroundColor White
+} else {
+    Write-Host "  • No profile information available" -ForegroundColor Yellow
+}
+
+# Get current equipment status
+Write-Host "📊 Current Equipment Status:" -ForegroundColor Cyan
+$currentEquipment = Invoke-RestMethod -Uri "http://localhost:5000/api/phd2/get-current-equipment" -Method GET
+if ($currentEquipment.Success) {
+    $equipment = $currentEquipment.Response.CurrentEquipment
+    Write-Host "  • Camera: $($equipment.camera.name) - $(if($equipment.camera.connected) {'Connected'} else {'Disconnected'})" -ForegroundColor $(if($equipment.camera.connected) {'Green'} else {'Red'})
+    Write-Host "  • Mount: $($equipment.mount.name) - $(if($equipment.mount.connected) {'Connected'} else {'Disconnected'})" -ForegroundColor $(if($equipment.mount.connected) {'Green'} else {'Red'})
+    if ($equipment.aux_mount) {
+        Write-Host "  • Aux Mount: $($equipment.aux_mount.name) - $(if($equipment.aux_mount.connected) {'Connected'} else {'Disconnected'})" -ForegroundColor $(if($equipment.aux_mount.connected) {'Green'} else {'Red'})
+    }
+} else {
+    Write-Host "  • Equipment information not available" -ForegroundColor Yellow
+}
 
 # Connect/Disconnect equipment workflow
 Write-Host "🔌 Equipment Connection Workflow" -ForegroundColor Cyan

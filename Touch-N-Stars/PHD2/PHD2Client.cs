@@ -979,5 +979,51 @@ namespace TouchNStars.PHD2
             Disconnect();
             connection?.Dispose();
         }
+
+        public object GetProfile()
+        {
+            CheckConnected();
+            var result = Call("get_profile");
+            var profileResult = result["result"];
+            
+            // PHD2's get_profile can return either a string or an object
+            if (profileResult.Type == JTokenType.String)
+            {
+                try
+                {
+                    // Try to parse as JSON if it's a string
+                    var parsed = JObject.Parse(profileResult.ToString());
+                    return new Dictionary<string, object>
+                    {
+                        ["id"] = parsed["id"]?.Value<int>() ?? 0,
+                        ["name"] = parsed["name"]?.ToString() ?? ""
+                    };
+                }
+                catch
+                {
+                    // If parsing fails, return the string as the profile name
+                    return new Dictionary<string, object>
+                    {
+                        ["name"] = profileResult.ToString()
+                    };
+                }
+            }
+            else if (profileResult.Type == JTokenType.Object)
+            {
+                // If it's already an object, convert to dictionary
+                var profileObj = (JObject)profileResult;
+                return new Dictionary<string, object>
+                {
+                    ["id"] = profileObj["id"]?.Value<int>() ?? 0,
+                    ["name"] = profileObj["name"]?.ToString() ?? ""
+                };
+            }
+            
+            // Fallback - return as string
+            return new Dictionary<string, object>
+            {
+                ["name"] = profileResult.ToString()
+            };
+        }
     }
 }

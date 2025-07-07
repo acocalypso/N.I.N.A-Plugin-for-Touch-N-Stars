@@ -1701,4 +1701,45 @@ public class Controller : WebApiController {
             };
         }
     }
+
+    [Route(HttpVerbs.Get, "/phd2/get-profile")]
+    public async Task<ApiResponse> GetPHD2Profile()
+    {
+        try
+        {
+            // Check if PHD2 is connected first
+            if (!phd2Service.IsConnected)
+            {
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "PHD2 is not connected",
+                    StatusCode = 400,
+                    Type = "PHD2NotConnected"
+                };
+            }
+            
+            var profile = await phd2Service.GetProfileAsync();
+            
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new { Profile = profile },
+                StatusCode = 200,
+                Type = "PHD2Profile"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Error getting profile: {ex}");
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
 }

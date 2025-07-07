@@ -1033,6 +1033,31 @@ namespace TouchNStars.Server
             });
         }
 
+        public async Task<object> GetProfileAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        return client.GetProfile();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get profile: {ex}");
+                    throw;
+                }
+            });
+        }
+
         public void Dispose()
         {
             try
