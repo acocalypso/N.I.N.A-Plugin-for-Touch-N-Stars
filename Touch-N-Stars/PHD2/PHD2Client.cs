@@ -838,81 +838,96 @@ namespace TouchNStars.PHD2
 
         public object GetCurrentEquipment()
         {
-            CheckConnected();
-            var result = Call("get_current_equipment");
-            
-            var equipmentObj = new Dictionary<string, object>();
-            var resultData = result["result"];
-            
-            // PHD2's get_current_equipment returns an object with device info including connection status
-            // Format: {"camera": {"name": "Simulator", "connected": true}, "mount": {"name": "On Camera", "connected": true}, ...}
-            
-            if (resultData is JObject equipmentDict)
+            try
             {
-                // Handle the standard object format returned by PHD2
-                foreach (var kvp in equipmentDict)
+                CheckConnected();
+                var result = Call("get_current_equipment");
+                
+                var equipmentObj = new Dictionary<string, object>();
+                var resultData = result["result"];
+                
+                // PHD2's get_current_equipment returns an object with device info including connection status
+                // Format: {"camera": {"name": "Simulator", "connected": true}, "mount": {"name": "On Camera", "connected": true}, ...}
+                
+                if (resultData is JObject equipmentDict)
                 {
-                    string deviceType = kvp.Key.ToLower();
-                    
-                    if (kvp.Value is JObject deviceInfo)
+                    // Handle the standard object format returned by PHD2
+                    foreach (var kvp in equipmentDict)
                     {
-                        // PHD2 returns device info as an object with name and connected properties
-                        var deviceObj = new Dictionary<string, object>();
+                        string deviceType = kvp.Key.ToLower();
                         
-                        if (deviceInfo["name"] != null)
+                        if (kvp.Value is JObject deviceInfo)
                         {
-                            deviceObj["name"] = deviceInfo["name"].ToString();
-                        }
-                        
-                        if (deviceInfo["connected"] != null)
-                        {
-                            deviceObj["connected"] = deviceInfo["connected"].Value<bool>();
+                            // PHD2 returns device info as an object with name and connected properties
+                            var deviceObj = new Dictionary<string, object>();
+                            
+                            if (deviceInfo["name"] != null)
+                            {
+                                deviceObj["name"] = deviceInfo["name"].ToString();
+                            }
+                            
+                            if (deviceInfo["connected"] != null)
+                            {
+                                deviceObj["connected"] = deviceInfo["connected"].Value<bool>();
+                            }
+                            else
+                            {
+                                // Fallback: if connected field is missing, assume connected if device has a name
+                                deviceObj["connected"] = !string.IsNullOrEmpty(deviceObj.ContainsKey("name") ? deviceObj["name"].ToString() : "");
+                            }
+                            
+                            equipmentObj[deviceType] = deviceObj;
                         }
                         else
                         {
-                            // Fallback: if connected field is missing, assume connected if device has a name
-                            deviceObj["connected"] = !string.IsNullOrEmpty(deviceObj.ContainsKey("name") ? deviceObj["name"].ToString() : "");
+                            // Legacy format: just device name as string
+                            string deviceName = kvp.Value?.ToString() ?? "";
+                            equipmentObj[deviceType] = new Dictionary<string, object>
+                            {
+                                ["name"] = deviceName,
+                                ["connected"] = !string.IsNullOrEmpty(deviceName)
+                            };
                         }
-                        
-                        equipmentObj[deviceType] = deviceObj;
-                    }
-                    else
-                    {
-                        // Legacy format: just device name as string
-                        string deviceName = kvp.Value?.ToString() ?? "";
-                        equipmentObj[deviceType] = new Dictionary<string, object>
-                        {
-                            ["name"] = deviceName,
-                            ["connected"] = !string.IsNullOrEmpty(deviceName)
-                        };
                     }
                 }
-            }
-            else if (resultData is JArray equipmentArray)
-            {
-                // Handle legacy array format [["Camera", "camera_name"], ["Mount", "mount_name"], ...]
-                foreach (JArray item in equipmentArray)
+                else if (resultData is JArray equipmentArray)
                 {
-                    if (item.Count >= 2)
+                    // Handle legacy array format [["Camera", "camera_name"], ["Mount", "mount_name"], ...]
+                    foreach (JArray item in equipmentArray)
                     {
-                        string deviceType = item[0].ToString().ToLower();
-                        string deviceName = item[1].ToString();
-                        
-                        equipmentObj[deviceType] = new Dictionary<string, object>
+                        if (item.Count >= 2)
                         {
-                            ["name"] = deviceName,
-                            ["connected"] = !string.IsNullOrEmpty(deviceName)
-                        };
+                            string deviceType = item[0].ToString().ToLower();
+                            string deviceName = item[1].ToString();
+                            
+                            equipmentObj[deviceType] = new Dictionary<string, object>
+                            {
+                                ["name"] = deviceName,
+                                ["connected"] = !string.IsNullOrEmpty(deviceName)
+                            };
+                        }
                     }
                 }
+                else
+                {
+                    // Unknown format, return empty equipment list
+                    System.Diagnostics.Debug.WriteLine($"Unknown equipment format: {resultData?.Type}");
+                }
+                
+                return equipmentObj;
             }
-            else
+            catch (PHD2Exception)
             {
-                // Unknown format, return empty equipment list
-                System.Diagnostics.Debug.WriteLine($"Unknown equipment format: {resultData?.Type}");
+                // PHD2 not connected or other PHD2-specific error
+                // Return empty equipment list instead of throwing to prevent NINA crashes
+                return new Dictionary<string, object>();
             }
-            
-            return equipmentObj;
+            catch (Exception ex)
+            {
+                // Log the error but don't crash NINA
+                System.Diagnostics.Debug.WriteLine($"Error getting PHD2 equipment: {ex.Message}");
+                return new Dictionary<string, object>();
+            }
         }
 
         /// <summary>
