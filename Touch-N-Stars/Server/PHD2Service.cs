@@ -414,6 +414,13 @@ namespace TouchNStars.Server
                         return client.GetPixelScale();
                     }
                 }
+                catch (PHD2Exception ex) when (ex.Message.Contains("Pixel scale not available"))
+                {
+                    // This is expected when no camera is connected or calibration hasn't been done
+                    // Log at Debug level to avoid spam in normal operation
+                    Logger.Debug($"Pixel scale not available: {ex.Message}");
+                    return 0.0;
+                }
                 catch (Exception ex)
                 {
                     lastError = ex.Message;

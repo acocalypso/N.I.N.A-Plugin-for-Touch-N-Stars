@@ -259,12 +259,35 @@ namespace TouchNStars.PHD2
                 System.Diagnostics.Trace.WriteLine($"PHD2 JSON-RPC: {jsonRpc}");
             }
 
-            connection.WriteLine(jsonRpc);
+            if (!IsConnected)
+                throw new PHD2Exception("PHD2 Server disconnected");
+
+            try
+            {
+                connection.WriteLine(jsonRpc);
+            }
+            catch (Exception ex)
+            {
+                // Connection was lost while trying to send the command
+                throw new PHD2Exception($"Failed to send command to PHD2: {ex.Message}");
+            }
 
             lock (syncObject)
             {
-                while (response == null)
-                    Monitor.Wait(syncObject);
+                var timeout = DateTime.Now.AddSeconds(10); // 10 second timeout
+                
+                while (response == null && DateTime.Now < timeout)
+                {
+                    if (!IsConnected)
+                        throw new PHD2Exception("PHD2 Server disconnected during call");
+                        
+                    Monitor.Wait(syncObject, 1000); // Wait max 1 second at a time
+                }
+                
+                if (response == null)
+                {
+                    throw new PHD2Exception($"Timeout waiting for response to {method} - PHD2 may be disconnected");
+                }
 
                 JObject result = response;
                 response = null;
@@ -285,6 +308,11 @@ namespace TouchNStars.PHD2
                     string line = connection.ReadLine();
                     if (line == null)
                     {
+                        // Connection lost - wake up any waiting calls
+                        lock (syncObject)
+                        {
+                            Monitor.PulseAll(syncObject);
+                        }
                         break;
                     }
 
@@ -318,6 +346,11 @@ namespace TouchNStars.PHD2
             catch (Exception ex)
             {
                 Debug.WriteLine($"PHD2 Worker thread error: {ex.Message}");
+                // Connection lost - wake up any waiting calls
+                lock (syncObject)
+                {
+                    Monitor.PulseAll(syncObject);
+                }
             }
         }
 
@@ -619,7 +652,15 @@ namespace TouchNStars.PHD2
         {
             CheckConnected();
             var result = Call("get_pixel_scale");
-            return (double)result["result"];
+            var pixelScale = result["result"];
+            
+            // PHD2 returns null when no pixel scale is configured (e.g., no camera connected or no calibration done)
+            if (pixelScale == null || pixelScale.Type == JTokenType.Null)
+            {
+                throw new PHD2Exception("Pixel scale not available - camera may not be connected or calibration not done");
+            }
+            
+            return (double)pixelScale;
         }
 
         public PHD2Status GetStatus()
