@@ -1084,7 +1084,7 @@ namespace TouchNStars.Server
 
                         var filename = client.SaveImage();
                         lastError = null;
-                        Logger.Info($"PHD2 image saved to: {filename}");
+                        Logger.Debug($"PHD2 image saved to: {filename}");
                         return filename;
                     }
                 }
