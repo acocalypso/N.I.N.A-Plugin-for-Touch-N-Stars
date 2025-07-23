@@ -7,6 +7,10 @@ using System.Drawing.Imaging;
 using System.Threading;
 using TouchNStars.PHD2;
 using System.Linq;
+using NINA.Image.Interfaces;
+using NINA.Core.Enum;
+using System.Windows.Media.Imaging;
+using NINA.WPF.Base.Utility;
 
 namespace TouchNStars.Server
 {
@@ -61,18 +65,35 @@ namespace TouchNStars.Server
                     if (!phd2Service.IsConnected)
                     {
                         lastError = "PHD2 is not connected";
+                        Logger.Warning("PHD2 refresh failed: PHD2 is not connected");
                         return false;
                     }
                 }
 
+                Logger.Info("Starting PHD2 image refresh...");
+
                 // Get image from PHD2
                 string fitsFilePath = await phd2Service.SaveImageAsync();
                 
-                if (string.IsNullOrEmpty(fitsFilePath) || !File.Exists(fitsFilePath))
+                Logger.Info($"PHD2 returned FITS file path: '{fitsFilePath}'");
+                
+                if (string.IsNullOrEmpty(fitsFilePath))
                 {
-                    lastError = "PHD2 did not return a valid image file";
+                    lastError = "PHD2 returned empty file path";
+                    Logger.Error("PHD2 returned empty file path");
                     return false;
                 }
+
+                if (!File.Exists(fitsFilePath))
+                {
+                    lastError = $"FITS file does not exist: {fitsFilePath}";
+                    Logger.Error($"FITS file does not exist: {fitsFilePath}");
+                    return false;
+                }
+
+                // Log file details
+                var fileInfo = new FileInfo(fitsFilePath);
+                Logger.Info($"FITS file exists: {fitsFilePath}, Size: {fileInfo.Length} bytes, Created: {fileInfo.CreationTime}");
 
                 // Convert FITS to JPG and cache it
                 string jpgPath = await ConvertFitsToJpgAsync(fitsFilePath);
@@ -100,6 +121,7 @@ namespace TouchNStars.Server
                 }
                 else
                 {
+                    Logger.Error("FITS to JPG conversion returned null path");
                     // Clean up the FITS file
                     try { File.Delete(fitsFilePath); } catch { }
                     return false;
@@ -109,32 +131,429 @@ namespace TouchNStars.Server
             {
                 lastError = ex.Message;
                 Logger.Error($"Failed to refresh PHD2 image: {ex}");
+                Logger.Error($"Stack trace: {ex.StackTrace}");
                 return false;
             }
         }
 
         private async Task<string> ConvertFitsToJpgAsync(string fitsFilePath)
         {
+            try
+            {
+                // Generate unique filename for the JPG
+                string jpgFileName = $"phd2_image_{DateTime.Now:yyyyMMdd_HHmmss_fff}.jpg";
+                string jpgPath = Path.Combine(cacheDirectory, jpgFileName);
+
+                // Check if NINA's ImageDataFactory is available
+                if (TouchNStars.Mediators?.ImageDataFactory != null)
+                {
+                    try
+                    {
+                        // Use NINA's ImageDataFactory to load the FITS file
+                        var imageDataFactory = TouchNStars.Mediators.ImageDataFactory;
+                        IImageData imageData = await imageDataFactory.CreateFromFile(fitsFilePath, 16, false, RawConverterEnum.FREEIMAGE);
+                        
+                        if (imageData != null)
+                        {
+                            // Render the image
+                            IRenderedImage renderedImage = imageData.RenderImage();
+                            
+                            // Apply basic stretching for better visibility
+                            renderedImage = await renderedImage.Stretch(2.5, 0.1, false);
+
+                            // Convert to bitmap and save as JPG
+                            BitmapSource bitmapSource = renderedImage.Image;
+                            
+                            // Create JPG encoder
+                            JpegBitmapEncoder encoder = new JpegBitmapEncoder();
+                            encoder.QualityLevel = 95;
+                            encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
+
+                            // Save to file
+                            using (FileStream fileStream = new FileStream(jpgPath, FileMode.Create))
+                            {
+                                encoder.Save(fileStream);
+                            }
+
+                            Logger.Info($"FITS converted to JPG using NINA: {jpgPath}");
+                            return jpgPath;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warning($"NINA ImageDataFactory failed: {ex.Message}, trying fallback method");
+                    }
+                }
+
+                // Fallback: Try to read and convert FITS file manually
+                Logger.Info("Using fallback method: manual FITS conversion");
+                return await ConvertFitsManuallyAsync(fitsFilePath, jpgPath);
+            }
+            catch (Exception ex)
+            {
+                lastError = $"Failed to convert FITS to JPG: {ex.Message}";
+                Logger.Error($"FITS conversion error: {ex}");
+                return null;
+            }
+        }
+
+        private async Task<string> ConvertFitsManuallyAsync(string fitsFilePath, string jpgPath)
+        {
+            try
+            {
+                Logger.Info($"Starting manual FITS conversion of: {fitsFilePath}");
+                
+                var fitsData = await ReadFitsFileAsync(fitsFilePath);
+                if (fitsData == null)
+                {
+                    Logger.Warning("Manual FITS reading returned null, creating placeholder");
+                    return await CreatePlaceholderImageAsync(jpgPath);
+                }
+
+                Logger.Info($"FITS data loaded successfully: {fitsData.Width}x{fitsData.Height}, BITPIX={fitsData.BitPix}");
+                
+                var result = await ConvertFitsDataToJpgAsync(fitsData, jpgPath);
+                
+                if (string.IsNullOrEmpty(result))
+                {
+                    Logger.Warning("FITS data to JPG conversion returned null, creating placeholder");
+                    return await CreatePlaceholderImageAsync(jpgPath);
+                }
+                
+                Logger.Info($"Manual FITS conversion completed successfully: {result}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Manual FITS conversion failed with exception: {ex.Message}");
+                Logger.Error($"Stack trace: {ex.StackTrace}");
+                Logger.Warning("Creating placeholder due to conversion failure");
+                return await CreatePlaceholderImageAsync(jpgPath);
+            }
+        }
+
+        private class SimpleFitsData
+        {
+            public int Width { get; set; }
+            public int Height { get; set; }
+            public float[,] ImageData { get; set; }
+            public int BitPix { get; set; }
+        }
+
+        private async Task<SimpleFitsData> ReadFitsFileAsync(string fitsFilePath)
+        {
             return await Task.Run(() =>
             {
                 try
                 {
-                    // Generate unique filename for the JPG
-                    string jpgFileName = $"phd2_image_{DateTime.Now:yyyyMMdd_HHmmss_fff}.jpg";
-                    string jpgPath = Path.Combine(cacheDirectory, jpgFileName);
-
-                    // Read FITS file using basic binary reading
-                    var fitsData = ReadBasicFitsFile(fitsFilePath);
-                    if (fitsData == null)
+                    Logger.Info($"Opening FITS file for reading: {fitsFilePath}");
+                    
+                    using (var fileStream = new FileStream(fitsFilePath, FileMode.Open, FileAccess.Read))
+                    using (var reader = new BinaryReader(fileStream))
                     {
-                        lastError = "Failed to read FITS file";
-                        return null;
+                        Logger.Info($"FITS file stream opened, length: {fileStream.Length} bytes");
+                        
+                        // Read FITS header
+                        int width = 0, height = 0, bitpix = 0;
+                        long dataStart = 0;
+                        int headerBlockCount = 0;
+
+                        // Read header blocks (2880 bytes each)
+                        while (dataStart < fileStream.Length)
+                        {
+                            fileStream.Seek(dataStart, SeekOrigin.Begin);
+                            byte[] block = reader.ReadBytes(2880);
+                            string headerText = System.Text.Encoding.ASCII.GetString(block);
+                            headerBlockCount++;
+
+                            Logger.Debug($"Reading header block {headerBlockCount} at position {dataStart}");
+
+                            // Parse key FITS keywords from the entire header block
+                            if (width == 0) width = ParseFitsKeyword(headerText, "NAXIS1");
+                            if (height == 0) height = ParseFitsKeyword(headerText, "NAXIS2");
+                            if (bitpix == 0) bitpix = ParseFitsKeyword(headerText, "BITPIX");
+
+                            // Log all header lines for debugging FITS structure
+                            Logger.Debug($"=== Header block {headerBlockCount} content ===");
+                            for (int i = 0; i < headerText.Length; i += 80)
+                            {
+                                int lineEnd = Math.Min(i + 80, headerText.Length);
+                                string line = headerText.Substring(i, lineEnd - i).TrimEnd('\0');
+                                if (!string.IsNullOrWhiteSpace(line))
+                                {
+                                    Logger.Debug($"Header line {(i/80)+1}: '{line}'");
+                                }
+                            }
+                            Logger.Debug($"=== End header block {headerBlockCount} ===");
+
+                            // Check for END keyword
+                            if (headerText.Contains("END     "))
+                            {
+                                dataStart += 2880;
+                                Logger.Info($"Found END keyword in header block {headerBlockCount}, data starts at position {dataStart}");
+                                break;
+                            }
+                            dataStart += 2880;
+                        }
+
+                        Logger.Info($"FITS header parsing complete: width={width}, height={height}, bitpix={bitpix}");
+
+                        if (width <= 0 || height <= 0)
+                        {
+                            Logger.Error($"Invalid FITS dimensions: {width}x{height}");
+                            return null;
+                        }
+
+                        if (bitpix == 0)
+                        {
+                            Logger.Error("BITPIX not found in FITS header");
+                            return null;
+                        }
+
+                        Logger.Info($"FITS file: {width}x{height}, BITPIX={bitpix}");
+
+                        // Calculate expected data size
+                        int bytesPerPixel = Math.Abs(bitpix) / 8;
+                        long expectedDataSize = (long)width * height * bytesPerPixel;
+                        long availableData = fileStream.Length - dataStart;
+                        
+                        Logger.Info($"Expected data size: {expectedDataSize} bytes, Available: {availableData} bytes");
+                        
+                        if (availableData < expectedDataSize)
+                        {
+                            Logger.Warning($"File appears truncated. Expected {expectedDataSize} bytes but only {availableData} available");
+                        }
+
+                        // Read image data
+                        fileStream.Seek(dataStart, SeekOrigin.Begin);
+                        var imageData = new float[width, height];
+
+                        Logger.Info($"Reading image data with BITPIX={bitpix}");
+
+                        if (bitpix == -32) // 32-bit float
+                        {
+                            for (int y = 0; y < height; y++)
+                            {
+                                for (int x = 0; x < width; x++)
+                                {
+                                    byte[] bytes = reader.ReadBytes(4);
+                                    if (bytes.Length < 4)
+                                    {
+                                        Logger.Error($"Unexpected end of file at pixel ({x},{y})");
+                                        return null;
+                                    }
+                                    if (BitConverter.IsLittleEndian)
+                                    {
+                                        Array.Reverse(bytes); // FITS is big-endian
+                                    }
+                                    imageData[x, y] = BitConverter.ToSingle(bytes, 0);
+                                }
+                            }
+                        }
+                        else if (bitpix == 16) // 16-bit signed integer
+                        {
+                            for (int y = 0; y < height; y++)
+                            {
+                                for (int x = 0; x < width; x++)
+                                {
+                                    byte[] bytes = reader.ReadBytes(2);
+                                    if (bytes.Length < 2)
+                                    {
+                                        Logger.Error($"Unexpected end of file at pixel ({x},{y})");
+                                        return null;
+                                    }
+                                    if (BitConverter.IsLittleEndian)
+                                    {
+                                        Array.Reverse(bytes);
+                                    }
+                                    imageData[x, y] = BitConverter.ToInt16(bytes, 0);
+                                }
+                            }
+                        }
+                        else if (bitpix == -64) // 64-bit double
+                        {
+                            for (int y = 0; y < height; y++)
+                            {
+                                for (int x = 0; x < width; x++)
+                                {
+                                    byte[] bytes = reader.ReadBytes(8);
+                                    if (bytes.Length < 8)
+                                    {
+                                        Logger.Error($"Unexpected end of file at pixel ({x},{y})");
+                                        return null;
+                                    }
+                                    if (BitConverter.IsLittleEndian)
+                                    {
+                                        Array.Reverse(bytes);
+                                    }
+                                    imageData[x, y] = (float)BitConverter.ToDouble(bytes, 0);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Logger.Warning($"Unsupported BITPIX: {bitpix}, attempting 16-bit fallback");
+                            // Fallback to 16-bit reading
+                            for (int y = 0; y < height; y++)
+                            {
+                                for (int x = 0; x < width; x++)
+                                {
+                                    byte[] bytes = reader.ReadBytes(2);
+                                    if (bytes.Length < 2)
+                                    {
+                                        Logger.Error($"Unexpected end of file at pixel ({x},{y}) during fallback read");
+                                        return null;
+                                    }
+                                    if (BitConverter.IsLittleEndian)
+                                    {
+                                        Array.Reverse(bytes);
+                                    }
+                                    imageData[x, y] = BitConverter.ToInt16(bytes, 0);
+                                }
+                            }
+                        }
+
+                        Logger.Info($"Successfully read image data: {width}x{height} pixels");
+
+                        return new SimpleFitsData
+                        {
+                            Width = width,
+                            Height = height,
+                            ImageData = imageData,
+                            BitPix = bitpix
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error reading FITS file '{fitsFilePath}': {ex.Message}");
+                    Logger.Error($"Stack trace: {ex.StackTrace}");
+                    return null;
+                }
+            });
+        }
+
+        private int ParseFitsKeyword(string headerText, string keyword)
+        {
+            try
+            {
+                // FITS keywords are at the start of 80-character lines
+                // Format: "KEYWORD = value / comment" or "KEYWORD = value"
+                string[] lines = new string[headerText.Length / 80];
+                for (int i = 0; i < headerText.Length; i += 80)
+                {
+                    int lineEnd = Math.Min(i + 80, headerText.Length);
+                    lines[i / 80] = headerText.Substring(i, lineEnd - i).TrimEnd('\0', ' ');
+                }
+
+                foreach (string line in lines)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    
+                    // Check if this line starts with our keyword
+                    if (line.StartsWith(keyword))
+                    {
+                        Logger.Debug($"Found line with keyword '{keyword}': '{line}'");
+                        
+                        // Look for the equals sign
+                        int equalsIndex = line.IndexOf('=');
+                        if (equalsIndex < 0) continue;
+                        
+                        // Extract value part (between = and / or end of meaningful content)
+                        string valuePart = line.Substring(equalsIndex + 1);
+                        
+                        // Find comment separator or end
+                        int commentIndex = valuePart.IndexOf('/');
+                        if (commentIndex >= 0)
+                        {
+                            valuePart = valuePart.Substring(0, commentIndex);
+                        }
+                        
+                        // Clean up the value
+                        string valueText = valuePart.Trim();
+                        Logger.Debug($"Parsing FITS keyword '{keyword}': raw value = '{valueText}'");
+                        
+                        if (int.TryParse(valueText, out int value))
+                        {
+                            Logger.Debug($"Successfully parsed '{keyword}' = {value}");
+                            return value;
+                        }
+                        else
+                        {
+                            Logger.Warning($"Failed to parse '{keyword}' value: '{valueText}' from line: '{line}'");
+                        }
+                    }
+                }
+                
+                Logger.Debug($"Keyword '{keyword}' not found in header");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error parsing FITS keyword {keyword}: {ex.Message}");
+                return 0;
+            }
+        }
+
+        private async Task<string> ConvertFitsDataToJpgAsync(SimpleFitsData fitsData, string jpgPath)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    // Find min/max values for scaling
+                    float minVal = float.MaxValue;
+                    float maxVal = float.MinValue;
+
+                    for (int y = 0; y < fitsData.Height; y++)
+                    {
+                        for (int x = 0; x < fitsData.Width; x++)
+                        {
+                            float value = fitsData.ImageData[x, y];
+                            if (!float.IsNaN(value) && !float.IsInfinity(value))
+                            {
+                                minVal = Math.Min(minVal, value);
+                                maxVal = Math.Max(maxVal, value);
+                            }
+                        }
                     }
 
-                    // Convert FITS data to bitmap
+                    // Avoid division by zero
+                    if (Math.Abs(maxVal - minVal) < 1e-10f)
+                    {
+                        maxVal = minVal + 1.0f;
+                    }
+
+                    Logger.Info($"FITS data range: {minVal} to {maxVal}");
+
+                    // Create bitmap and convert
                     using (var bitmap = new Bitmap(fitsData.Width, fitsData.Height, PixelFormat.Format24bppRgb))
                     {
-                        ConvertFitsDataToBitmap(fitsData.ImageData, bitmap, fitsData.Width, fitsData.Height);
+                        for (int y = 0; y < fitsData.Height; y++)
+                        {
+                            for (int x = 0; x < fitsData.Width; x++)
+                            {
+                                float value = fitsData.ImageData[x, y];
+                                
+                                // Handle NaN/Infinity values
+                                if (float.IsNaN(value) || float.IsInfinity(value))
+                                {
+                                    value = minVal;
+                                }
+
+                                // Apply simple linear stretch
+                                float normalized = (value - minVal) / (maxVal - minVal);
+                                
+                                // Apply gamma correction for better visibility
+                                normalized = (float)Math.Pow(normalized, 0.5);
+                                
+                                int intensity = (int)Math.Round(255.0f * Math.Max(0, Math.Min(1, normalized)));
+
+                                // Set pixel (flip Y coordinate since FITS has origin at bottom-left)
+                                Color color = Color.FromArgb(intensity, intensity, intensity);
+                                bitmap.SetPixel(x, fitsData.Height - 1 - y, color);
+                            }
+                        }
                         
                         // Save as JPG
                         var jpegEncoder = ImageCodecInfo.GetImageEncoders()
@@ -152,179 +571,75 @@ namespace TouchNStars.Server
                         }
                     }
 
+                    Logger.Info($"FITS manually converted to JPG: {jpgPath}");
                     return jpgPath;
                 }
                 catch (Exception ex)
                 {
-                    lastError = $"Failed to convert FITS to JPG: {ex.Message}";
-                    Logger.Error($"FITS conversion error: {ex}");
-                    return null;
+                    Logger.Error($"Failed to convert FITS data to JPG: {ex}");
+                    throw;
                 }
             });
         }
 
-        private class FitsImageData
+        private async Task<string> CreatePlaceholderImageAsync(string jpgPath)
         {
-            public int Width { get; set; }
-            public int Height { get; set; }
-            public float[,] ImageData { get; set; }
-        }
-
-        private FitsImageData ReadBasicFitsFile(string fitsFilePath)
-        {
-            try
+            return await Task.Run(() =>
             {
-                using (var fileStream = new FileStream(fitsFilePath, FileMode.Open, FileAccess.Read))
-                using (var reader = new BinaryReader(fileStream))
+                try
                 {
-                    // FITS files have 2880-byte blocks and start with header cards
-                    // This is a very basic implementation that assumes PHD2's FITS format
-                    
-                    // Skip to find dimensions in header
-                    fileStream.Seek(0, SeekOrigin.Begin);
-                    byte[] headerBlock = reader.ReadBytes(2880);
-                    string headerText = System.Text.Encoding.ASCII.GetString(headerBlock);
-                    
-                    // Parse NAXIS1 and NAXIS2 (width and height)
-                    int width = ParseFitsKeyword(headerText, "NAXIS1");
-                    int height = ParseFitsKeyword(headerText, "NAXIS2");
-                    
-                    if (width <= 0 || height <= 0)
+                    // Create a 640x480 placeholder image
+                    using (var bitmap = new Bitmap(640, 480, PixelFormat.Format24bppRgb))
+                    using (var graphics = Graphics.FromImage(bitmap))
                     {
-                        Logger.Error($"Invalid FITS dimensions: {width}x{height}");
-                        return null;
-                    }
-
-                    // Find end of header (marked by "END" keyword)
-                    long dataStart = 2880; // Start with first block
-                    while (dataStart < fileStream.Length)
-                    {
-                        fileStream.Seek(dataStart - 2880, SeekOrigin.Begin);
-                        byte[] block = reader.ReadBytes(2880);
-                        string blockText = System.Text.Encoding.ASCII.GetString(block);
+                        // Fill with dark gray background
+                        graphics.Clear(Color.FromArgb(32, 32, 32));
                         
-                        if (blockText.Contains("END     "))
+                        // Add text indicating this is a placeholder
+                        using (var font = new Font("Arial", 16, FontStyle.Bold))
+                        using (var brush = new SolidBrush(Color.White))
                         {
-                            break;
+                            string text = $"PHD2 Image\n{DateTime.Now:HH:mm:ss}\n\nFITS conversion not available\nPlaceholder image";
+                            var textBounds = graphics.MeasureString(text, font);
+                            float x = (bitmap.Width - textBounds.Width) / 2;
+                            float y = (bitmap.Height - textBounds.Height) / 2;
+                            
+                            graphics.DrawString(text, font, brush, x, y);
                         }
-                        dataStart += 2880;
-                    }
-
-                    // Read image data
-                    fileStream.Seek(dataStart, SeekOrigin.Begin);
-                    var imageData = new float[width, height];
-                    
-                    // PHD2 typically saves as 32-bit floats (BITPIX = -32)
-                    for (int y = 0; y < height; y++)
-                    {
-                        for (int x = 0; x < width; x++)
-                        {
-                            byte[] bytes = reader.ReadBytes(4);
-                            if (BitConverter.IsLittleEndian)
-                            {
-                                Array.Reverse(bytes); // FITS is big-endian
-                            }
-                            imageData[x, y] = BitConverter.ToSingle(bytes, 0);
-                        }
-                    }
-
-                    return new FitsImageData
-                    {
-                        Width = width,
-                        Height = height,
-                        ImageData = imageData
-                    };
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error reading basic FITS file: {ex}");
-                return null;
-            }
-        }
-
-        private int ParseFitsKeyword(string headerText, string keyword)
-        {
-            try
-            {
-                string pattern = keyword + "=";
-                int startIndex = headerText.IndexOf(pattern);
-                if (startIndex < 0) return -1;
-                
-                startIndex += pattern.Length;
-                int endIndex = headerText.IndexOf('/', startIndex);
-                if (endIndex < 0) endIndex = startIndex + 20; // Default length
-                
-                string valueText = headerText.Substring(startIndex, endIndex - startIndex).Trim();
-                if (int.TryParse(valueText, out int value))
-                {
-                    return value;
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error parsing FITS keyword {keyword}: {ex}");
-            }
-            return -1;
-        }
-
-        private void ConvertFitsDataToBitmap(Array fitsData, Bitmap bitmap, int width, int height)
-        {
-            try
-            {
-                // Convert FITS data to image
-                double minVal = double.MaxValue;
-                double maxVal = double.MinValue;
-
-                // Find min/max values for scaling
-                for (int y = 0; y < height; y++)
-                {
-                    for (int x = 0; x < width; x++)
-                    {
-                        double value = Convert.ToDouble(fitsData.GetValue(x, y));
-                        if (!double.IsNaN(value) && !double.IsInfinity(value))
-                        {
-                            minVal = Math.Min(minVal, value);
-                            maxVal = Math.Max(maxVal, value);
-                        }
-                    }
-                }
-
-                // Avoid division by zero
-                if (Math.Abs(maxVal - minVal) < 1e-10)
-                {
-                    maxVal = minVal + 1.0;
-                }
-
-                // Convert to 8-bit grayscale and then to RGB
-                for (int y = 0; y < height; y++)
-                {
-                    for (int x = 0; x < width; x++)
-                    {
-                        double value = Convert.ToDouble(fitsData.GetValue(x, y));
                         
-                        // Handle NaN/Infinity values
-                        if (double.IsNaN(value) || double.IsInfinity(value))
+                        // Draw a simple border
+                        using (var pen = new Pen(Color.Gray, 2))
                         {
-                            value = minVal;
+                            graphics.DrawRectangle(pen, 10, 10, bitmap.Width - 20, bitmap.Height - 20);
                         }
-
-                        // Scale to 0-255
-                        int intensity = (int)Math.Round(255.0 * (value - minVal) / (maxVal - minVal));
-                        intensity = Math.Max(0, Math.Min(255, intensity));
-
-                        // Set pixel (flip Y coordinate since FITS has origin at bottom-left)
-                        Color color = Color.FromArgb(intensity, intensity, intensity);
-                        bitmap.SetPixel(x, height - 1 - y, color);
+                        
+                        // Save as JPG
+                        var jpegEncoder = ImageCodecInfo.GetImageEncoders()
+                            .FirstOrDefault(codec => codec.FormatID == ImageFormat.Jpeg.Guid);
+                        
+                        if (jpegEncoder != null)
+                        {
+                            var encoderParams = new EncoderParameters(1);
+                            encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, 95L);
+                            bitmap.Save(jpgPath, jpegEncoder, encoderParams);
+                        }
+                        else
+                        {
+                            bitmap.Save(jpgPath, ImageFormat.Jpeg);
+                        }
                     }
+
+                    Logger.Info($"Placeholder image created: {jpgPath}");
+                    return jpgPath;
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error converting FITS data to bitmap: {ex}");
-                throw;
-            }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Failed to create placeholder image: {ex}");
+                    throw;
+                }
+            });
         }
+
 
         public async Task<byte[]> GetCurrentImageBytesAsync()
         {

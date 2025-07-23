@@ -1765,7 +1765,7 @@ public class Controller : WebApiController {
                     StatusCode = 404,
                     Type = "PHD2ImageNotFound"
                 });
-                await HttpContext.Response.WriteAsync(errorResponse);
+                Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
                 return;
             }
 
@@ -1776,7 +1776,7 @@ public class Controller : WebApiController {
             HttpContext.Response.Headers.Add("Expires", "0");
             HttpContext.Response.Headers.Add("Last-Modified", phd2ImageService.LastImageTime.ToString("R"));
             
-            await HttpContext.Response.OutputStream.WriteAsync(imageBytes, 0, imageBytes.Length);
+            Response.OutputStream.Write(imageBytes, 0, imageBytes.Length);
         }
         catch (Exception ex)
         {
@@ -1790,7 +1790,7 @@ public class Controller : WebApiController {
                 StatusCode = 500,
                 Type = "Error"
             });
-            await HttpContext.Response.WriteAsync(errorResponse);
+            Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
         }
     }
 
