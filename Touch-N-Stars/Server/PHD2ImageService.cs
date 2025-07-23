@@ -21,7 +21,6 @@ namespace TouchNStars.Server
         private readonly string cacheDirectory;
         private string currentImagePath;
         private DateTime lastImageTime = DateTime.MinValue;
-        private readonly Timer refreshTimer;
         private string lastError;
         private volatile bool isRefreshing = false; // Prevent overlapping refreshes
         private volatile bool isDisposed = false;
@@ -40,31 +39,6 @@ namespace TouchNStars.Server
                 "NINA", "TnsCache", "phd2_images"
             );
             Directory.CreateDirectory(cacheDirectory);
-
-            // Start a timer to periodically refresh the image (every 5 seconds)
-            refreshTimer = new Timer(RefreshImageCallback, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
-        }
-
-        private void RefreshImageCallback(object state)
-        {
-            // Prevent overlapping refresh operations
-            if (isRefreshing || isDisposed) return;
-            
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await RefreshImageAsync();
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"Error in PHD2 image refresh: {ex}");
-                    lock (lockObject)
-                    {
-                        lastError = ex.Message;
-                    }
-                }
-            });
         }
 
         public async Task<bool> RefreshImageAsync()
@@ -624,6 +598,9 @@ namespace TouchNStars.Server
 
         public async Task<byte[]> GetCurrentImageBytesAsync()
         {
+            // Always fetch a fresh image on demand
+            await RefreshImageAsync();
+            
             string imagePath;
             lock (lockObject)
             {
@@ -651,9 +628,6 @@ namespace TouchNStars.Server
             if (isDisposed) return;
             
             isDisposed = true;
-            
-            // Stop the timer first
-            refreshTimer?.Dispose();
             
             // Wait for any ongoing refresh to complete
             while (isRefreshing)
