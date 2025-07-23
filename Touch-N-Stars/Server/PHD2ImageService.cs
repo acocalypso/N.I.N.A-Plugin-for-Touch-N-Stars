@@ -495,9 +495,8 @@ namespace TouchNStars.Server
                                         
                                         byte intensity = (byte)Math.Round(255.0f * Math.Max(0, Math.Min(1, normalized)));
 
-                                        // Calculate pixel position (flip Y coordinate since FITS has origin at bottom-left)
-                                        int flippedY = fitsData.Height - 1 - y;
-                                        byte* pixel = ptr + (flippedY * stride) + (x * 3);
+                                        // Use Y coordinate directly (no flipping needed)
+                                        byte* pixel = ptr + (y * stride) + (x * 3);
                                         
                                         // Set RGB values (grayscale, so all same)
                                         pixel[0] = intensity; // Blue
