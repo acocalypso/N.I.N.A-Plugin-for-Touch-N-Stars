@@ -1003,6 +1003,22 @@ namespace TouchNStars.PHD2
             throw new PHD2Exception("find_star did not return valid coordinates");
         }
 
+        /// <summary>
+        /// Save the current image from PHD2 to a FITS file
+        /// </summary>
+        /// <returns>The full path to the saved FITS image file</returns>
+        public string SaveImage()
+        {
+            CheckConnected();
+            var result = Call("save_image");
+            var filename = (string)result["result"]["filename"];
+            
+            if (string.IsNullOrEmpty(filename))
+                throw new PHD2Exception("save_image did not return a valid filename");
+                
+            return filename;
+        }
+
         private bool IsGuiding()
         {
             return AppState == "Guiding" || AppState == "LostLock";

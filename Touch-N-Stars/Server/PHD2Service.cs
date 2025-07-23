@@ -1065,6 +1065,38 @@ namespace TouchNStars.Server
             });
         }
 
+        /// <summary>
+        /// Save the current image from PHD2 to a FITS file
+        /// </summary>
+        /// <returns>The full path to the saved FITS image file</returns>
+        public async Task<string> SaveImageAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        var filename = client.SaveImage();
+                        lastError = null;
+                        Logger.Info($"PHD2 image saved to: {filename}");
+                        return filename;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to save PHD2 image: {ex}");
+                    throw;
+                }
+            });
+        }
+
         public void Dispose()
         {
             try

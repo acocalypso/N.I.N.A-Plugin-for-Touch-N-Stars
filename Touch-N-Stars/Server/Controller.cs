@@ -53,6 +53,7 @@ public class Controller : WebApiController {
     );
     private static readonly object _fileLock = new();
     private static PHD2Service phd2Service = new PHD2Service();
+    private static PHD2ImageService phd2ImageService = new PHD2ImageService(phd2Service);
 
 
 
@@ -433,6 +434,7 @@ public class Controller : WebApiController {
     // PHD2 API Endpoints
 
     public static void CleanupPHD2Service() {
+        phd2ImageService?.Dispose();
         phd2Service?.Dispose();
     }
 
@@ -1732,6 +1734,123 @@ public class Controller : WebApiController {
         catch (Exception ex)
         {
             Logger.Error($"Error getting profile: {ex}");
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    // PHD2 Image API Endpoints
+
+    [Route(HttpVerbs.Get, "/phd2/current-image")]
+    public async Task GetPHD2CurrentImage()
+    {
+        try
+        {
+            var imageBytes = await phd2ImageService.GetCurrentImageBytesAsync();
+            
+            if (imageBytes == null)
+            {
+                HttpContext.Response.StatusCode = 404;
+                HttpContext.Response.ContentType = "application/json";
+                var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+                {
+                    Success = false,
+                    Error = phd2ImageService.LastError ?? "No current PHD2 image available",
+                    StatusCode = 404,
+                    Type = "PHD2ImageNotFound"
+                });
+                await HttpContext.Response.WriteAsync(errorResponse);
+                return;
+            }
+
+            HttpContext.Response.ContentType = "image/jpeg";
+            HttpContext.Response.StatusCode = 200;
+            HttpContext.Response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
+            HttpContext.Response.Headers.Add("Pragma", "no-cache");
+            HttpContext.Response.Headers.Add("Expires", "0");
+            HttpContext.Response.Headers.Add("Last-Modified", phd2ImageService.LastImageTime.ToString("R"));
+            
+            await HttpContext.Response.OutputStream.WriteAsync(imageBytes, 0, imageBytes.Length);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Error serving PHD2 image: {ex}");
+            HttpContext.Response.StatusCode = 500;
+            HttpContext.Response.ContentType = "application/json";
+            var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            });
+            await HttpContext.Response.WriteAsync(errorResponse);
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/phd2/image-info")]
+    public async Task<ApiResponse> GetPHD2ImageInfo()
+    {
+        try
+        {
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    HasCurrentImage = phd2ImageService.HasCurrentImage,
+                    LastImageTime = phd2ImageService.LastImageTime,
+                    LastError = phd2ImageService.LastError,
+                    TimeSinceLastImage = phd2ImageService.HasCurrentImage ? 
+                        DateTime.Now - phd2ImageService.LastImageTime : (TimeSpan?)null
+                },
+                StatusCode = 200,
+                Type = "PHD2ImageInfo"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/refresh-image")]
+    public async Task<ApiResponse> RefreshPHD2Image()
+    {
+        try
+        {
+            bool success = await phd2ImageService.RefreshImageAsync();
+            
+            return new ApiResponse
+            {
+                Success = success,
+                Response = new
+                {
+                    ImageRefreshed = success,
+                    LastImageTime = phd2ImageService.LastImageTime,
+                    Error = phd2ImageService.LastError
+                },
+                StatusCode = success ? 200 : 400,
+                Type = "PHD2ImageRefresh"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
             HttpContext.Response.StatusCode = 500;
             return new ApiResponse
             {
