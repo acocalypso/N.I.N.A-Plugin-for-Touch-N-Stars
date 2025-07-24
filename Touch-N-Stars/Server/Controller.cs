@@ -1185,6 +1185,10 @@ public class Controller : WebApiController {
         try {
             var position = await phd2Service.GetLockPositionAsync();
             
+            if (position == null || position.Length < 2) {
+                throw new InvalidOperationException("Lock position not available - PHD2 is not currently guiding or no lock position has been established");
+            }
+            
             return new ApiResponse {
                 Success = true,
                 Response = new { LockPosition = new { X = position[0], Y = position[1] } },
