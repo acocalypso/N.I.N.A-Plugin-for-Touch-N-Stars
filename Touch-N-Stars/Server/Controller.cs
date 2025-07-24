@@ -1186,7 +1186,13 @@ public class Controller : WebApiController {
             var position = await phd2Service.GetLockPositionAsync();
             
             if (position == null || position.Length < 2) {
-                throw new InvalidOperationException("Lock position not available - PHD2 is not currently guiding or no lock position has been established");
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Keine Daten vorhanden - PHD2 ist derzeit nicht am guidenden oder es wurde keine Lock-Position festgelegt",
+                    StatusCode = 400,
+                    Type = "NoDataAvailable"
+                };
             }
             
             return new ApiResponse {
@@ -1195,14 +1201,23 @@ public class Controller : WebApiController {
                 StatusCode = 200,
                 Type = "PHD2Parameter"
             };
-        } catch (Exception ex) {
+        } catch (InvalidOperationException ex) when (ex.Message.Contains("PHD2 not connected")) {
             Logger.Error(ex);
             HttpContext.Response.StatusCode = 500;
             return new ApiResponse {
                 Success = false,
-                Error = ex.Message,
+                Error = "PHD2 ist nicht erreichbar",
                 StatusCode = 500,
-                Type = "Error"
+                Type = "PHD2NotConnected"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 400;
+            return new ApiResponse {
+                Success = false,
+                Error = "Keine Daten vorhanden - " + ex.Message,
+                StatusCode = 400,
+                Type = "NoDataAvailable"
             };
         }
     }
