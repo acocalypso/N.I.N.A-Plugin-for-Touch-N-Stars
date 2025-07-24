@@ -80,6 +80,16 @@ namespace TouchNStars.PHD2
         public StarLostInfo LastStarLost { get; set; }
     }
 
+    public class StarImageData
+    {
+        public int Frame { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public double StarPosX { get; set; }
+        public double StarPosY { get; set; }
+        public string Pixels { get; set; } // Base64 encoded 16-bit pixel data
+    }
+
     internal class PHD2Connection : IDisposable
     {
         private TcpClient tcpClient;
@@ -1017,6 +1027,40 @@ namespace TouchNStars.PHD2
                 throw new PHD2Exception("save_image did not return a valid filename");
                 
             return filename;
+        }
+
+        /// <summary>
+        /// Get the star image from PHD2 as base64 encoded data
+        /// </summary>
+        /// <param name="size">Optional size parameter for the image</param>
+        /// <returns>Star image data including dimensions, star position, and base64 encoded pixels</returns>
+        public StarImageData GetStarImage(int? size = null)
+        {
+            CheckConnected();
+            
+            JObject result;
+            if (size.HasValue)
+            {
+                result = Call("get_star_image", new JValue(size.Value));
+            }
+            else
+            {
+                result = Call("get_star_image");
+            }
+            
+            var resultData = result["result"];
+            if (resultData == null)
+                throw new PHD2Exception("get_star_image returned null result");
+            
+            return new StarImageData
+            {
+                Frame = (int)resultData["frame"],
+                Width = (int)resultData["width"], 
+                Height = (int)resultData["height"],
+                StarPosX = (double)resultData["star_pos"][0],
+                StarPosY = (double)resultData["star_pos"][1],
+                Pixels = (string)resultData["pixels"]
+            };
         }
 
         private bool IsGuiding()

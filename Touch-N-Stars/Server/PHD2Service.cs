@@ -1097,6 +1097,39 @@ namespace TouchNStars.Server
             });
         }
 
+        /// <summary>
+        /// Get the star image from PHD2 as base64 encoded data
+        /// </summary>
+        /// <param name="size">Optional size parameter for the image</param>
+        /// <returns>Star image data including dimensions, star position, and base64 encoded pixels</returns>
+        public async Task<StarImageData> GetStarImageAsync(int? size = null)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        var starImage = client.GetStarImage(size);
+                        lastError = null;
+                        Logger.Debug($"PHD2 star image retrieved: {starImage.Width}x{starImage.Height}, star at ({starImage.StarPosX}, {starImage.StarPosY})");
+                        return starImage;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get PHD2 star image: {ex}");
+                    throw;
+                }
+            });
+        }
+
         public void Dispose()
         {
             try

@@ -1880,4 +1880,64 @@ public class Controller : WebApiController {
             };
         }
     }
+
+    [Route(HttpVerbs.Get, "/phd2/star-image")]
+    public async Task GetPHD2StarImage([QueryField] int size)
+    {
+        try
+        {
+            // Get star image data from PHD2
+            var starImageData = await phd2Service.GetStarImageAsync(size > 0 ? size : null);
+            
+            if (starImageData == null)
+            {
+                HttpContext.Response.StatusCode = 404;
+                HttpContext.Response.ContentType = "application/json";
+                var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+                {
+                    Success = false,
+                    Error = phd2Service.LastError ?? "No PHD2 star image available",
+                    StatusCode = 404,
+                    Type = "PHD2StarImageNotFound"
+                });
+                Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
+                return;
+            }
+
+            // Convert base64 pixel data to JPG
+            byte[] jpgBytes = ImageConverter.ConvertBase64StarImageToJpg(
+                starImageData.Pixels, 
+                starImageData.Width, 
+                starImageData.Height, 
+                size > 0 ? size : null
+            );
+
+            // Set response headers
+            HttpContext.Response.ContentType = "image/jpeg";
+            HttpContext.Response.StatusCode = 200;
+            HttpContext.Response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
+            HttpContext.Response.Headers.Add("Pragma", "no-cache");
+            HttpContext.Response.Headers.Add("Expires", "0");
+            HttpContext.Response.Headers.Add("X-Star-Position", $"{starImageData.StarPosX},{starImageData.StarPosY}");
+            HttpContext.Response.Headers.Add("X-Original-Size", $"{starImageData.Width}x{starImageData.Height}");
+            HttpContext.Response.Headers.Add("X-Frame", starImageData.Frame.ToString());
+            
+            // Write JPG data to response
+            Response.OutputStream.Write(jpgBytes, 0, jpgBytes.Length);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Error serving PHD2 star image: {ex}");
+            HttpContext.Response.StatusCode = 500;
+            HttpContext.Response.ContentType = "application/json";
+            var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            });
+            Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
+        }
+    }
 }
