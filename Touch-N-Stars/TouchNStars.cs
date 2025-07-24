@@ -85,6 +85,13 @@ namespace TouchNStars {
                 server.Start();
                 ShowNotificationIfPortChanged();
             }
+
+            // Handle ToastNotifications culture issues on German systems
+            try {
+                System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+            } catch (Exception ex) {
+                Logger.Debug($"Could not set UI culture to en-US: {ex.Message}");
+            }
         }
 
         public CommunityToolkit.Mvvm.Input.RelayCommand UpdateDefaultPortCommand { get; set; }

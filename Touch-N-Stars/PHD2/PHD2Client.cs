@@ -78,6 +78,15 @@ namespace TouchNStars.PHD2
         public bool IsSettling { get; set; }
         public SettleProgress SettleProgress { get; set; }
         public StarLostInfo LastStarLost { get; set; }
+        public GuideStarInfo CurrentStar { get; set; }
+    }
+
+    public class GuideStarInfo
+    {
+        public double SNR { get; set; }
+        public double HFD { get; set; }
+        public double StarMass { get; set; }
+        public DateTime LastUpdate { get; set; }
     }
 
     public class StarImageData
@@ -220,6 +229,7 @@ namespace TouchNStars.PHD2
         public string Version { get; private set; }
         public string PHDSubver { get; private set; }
         public StarLostInfo LastStarLost { get; private set; }
+        public GuideStarInfo CurrentStar { get; private set; } = new GuideStarInfo();
         private SettleProgress settle;
 
         public PHD2Client(string hostname = "localhost", uint instance = 1)
@@ -395,6 +405,15 @@ namespace TouchNStars.PHD2
                     }
                     AppState = "Guiding";
                     AvgDist = (double)eventObj["AvgDist"];
+                    
+                    // Update current star info from GuideStep event
+                    if (CurrentStar != null)
+                    {
+                        if (eventObj["SNR"] != null) CurrentStar.SNR = (double)eventObj["SNR"];
+                        if (eventObj["HFD"] != null) CurrentStar.HFD = (double)eventObj["HFD"];
+                        if (eventObj["StarMass"] != null) CurrentStar.StarMass = (double)eventObj["StarMass"];
+                        CurrentStar.LastUpdate = DateTime.Now;
+                    }
                     break;
 
                 case "GuidingStopped":
@@ -686,7 +705,14 @@ namespace TouchNStars.PHD2
                 IsGuiding = IsGuiding(),
                 IsSettling = settle != null,
                 SettleProgress = settle,
-                LastStarLost = LastStarLost
+                LastStarLost = LastStarLost,
+                CurrentStar = CurrentStar != null ? new GuideStarInfo
+                {
+                    SNR = CurrentStar.SNR,
+                    HFD = CurrentStar.HFD,
+                    StarMass = CurrentStar.StarMass,
+                    LastUpdate = CurrentStar.LastUpdate
+                } : null
             };
         }
 
@@ -1032,7 +1058,7 @@ namespace TouchNStars.PHD2
         /// <summary>
         /// Get the star image from PHD2 as base64 encoded data
         /// </summary>
-        /// <param name="size">Optional size parameter for the image</param>
+        /// <param name="size">Optional size parameter for the image (minimum 15 pixels, default 15)</param>
         /// <returns>Star image data including dimensions, star position, and base64 encoded pixels</returns>
         public StarImageData GetStarImage(int? size = null)
         {
@@ -1041,7 +1067,9 @@ namespace TouchNStars.PHD2
             JObject result;
             if (size.HasValue)
             {
-                result = Call("get_star_image", new JValue(size.Value));
+                // PHD2 requires size >= 15
+                int actualSize = Math.Max(15, size.Value);
+                result = Call("get_star_image", new JValue(actualSize));
             }
             else
             {

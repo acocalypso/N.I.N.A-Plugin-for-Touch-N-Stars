@@ -875,6 +875,52 @@ public class Controller : WebApiController {
             var settling = await settlingTask;
             var pixelScale = await pixelScaleTask;
 
+            // Try to get star image info if available
+            object starImageInfo = null;
+            try
+            {
+                if (phd2Service.IsConnected && (status?.AppState == "Guiding" || status?.AppState == "Looping"))
+                {
+                    var starImage = await phd2Service.GetStarImageAsync(15); // Get minimal size star image for info
+                    if (starImage != null)
+                    {
+                        starImageInfo = new {
+                            Available = true,
+                            Frame = starImage.Frame,
+                            Width = starImage.Width,
+                            Height = starImage.Height,
+                            StarPosition = new {
+                                X = starImage.StarPosX,
+                                Y = starImage.StarPosY
+                            },
+                            StarInfo = status?.CurrentStar != null ? new {
+                                SNR = status.CurrentStar.SNR,
+                                HFD = status.CurrentStar.HFD,
+                                StarMass = status.CurrentStar.StarMass,
+                                LastUpdate = status.CurrentStar.LastUpdate,
+                                TimeSinceUpdate = DateTime.Now - status.CurrentStar.LastUpdate
+                            } : null
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Could not get star image info: {ex.Message}");
+                starImageInfo = new {
+                    Available = false,
+                    Error = ex.Message
+                };
+            }
+
+            if (starImageInfo == null)
+            {
+                starImageInfo = new {
+                    Available = false,
+                    Reason = "Not guiding or looping"
+                };
+            }
+
             var allInfo = new {
                 Connection = new {
                     IsConnected = phd2Service.IsConnected,
@@ -884,11 +930,13 @@ public class Controller : WebApiController {
                 EquipmentProfiles = profiles,
                 Settling = settling,
                 PixelScale = pixelScale,
+                StarImage = starImageInfo,
                 Capabilities = new {
                     CanGuide = phd2Service.IsConnected && (status?.AppState == "Guiding" || status?.AppState == "Looping" || status?.AppState == "Stopped"),
                     CanDither = phd2Service.IsConnected && status?.AppState == "Guiding",
                     CanPause = phd2Service.IsConnected && status?.AppState == "Guiding",
-                    CanLoop = phd2Service.IsConnected && status?.AppState == "Stopped"
+                    CanLoop = phd2Service.IsConnected && status?.AppState == "Stopped",
+                    CanGetStarImage = phd2Service.IsConnected && (status?.AppState == "Guiding" || status?.AppState == "Looping")
                 },
                 GuideStats = status?.Stats != null ? new {
                     RmsTotal = status.Stats.RmsTotal,
@@ -1886,8 +1934,11 @@ public class Controller : WebApiController {
     {
         try
         {
+            // PHD2 requires size >= 15, default to 15 if not specified or too small
+            int requestedSize = size > 0 ? Math.Max(15, size) : 15;
+            
             // Get star image data from PHD2
-            var starImageData = await phd2Service.GetStarImageAsync(size > 0 ? size : null);
+            var starImageData = await phd2Service.GetStarImageAsync(requestedSize);
             
             if (starImageData == null)
             {
@@ -1904,12 +1955,12 @@ public class Controller : WebApiController {
                 return;
             }
 
-            // Convert base64 pixel data to JPG
+            // Convert base64 pixel data to JPG - no additional scaling needed as PHD2 already provides correct size
             byte[] jpgBytes = ImageConverter.ConvertBase64StarImageToJpg(
                 starImageData.Pixels, 
                 starImageData.Width, 
                 starImageData.Height, 
-                size > 0 ? size : null
+                null // Don't scale further as PHD2 already provided the requested size
             );
 
             // Set response headers
@@ -1919,8 +1970,9 @@ public class Controller : WebApiController {
             HttpContext.Response.Headers.Add("Pragma", "no-cache");
             HttpContext.Response.Headers.Add("Expires", "0");
             HttpContext.Response.Headers.Add("X-Star-Position", $"{starImageData.StarPosX},{starImageData.StarPosY}");
-            HttpContext.Response.Headers.Add("X-Original-Size", $"{starImageData.Width}x{starImageData.Height}");
+            HttpContext.Response.Headers.Add("X-Image-Size", $"{starImageData.Width}x{starImageData.Height}");
             HttpContext.Response.Headers.Add("X-Frame", starImageData.Frame.ToString());
+            HttpContext.Response.Headers.Add("X-Requested-Size", requestedSize.ToString());
             
             // Write JPG data to response
             Response.OutputStream.Write(jpgBytes, 0, jpgBytes.Length);
