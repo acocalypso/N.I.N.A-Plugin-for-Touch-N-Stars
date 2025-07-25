@@ -1121,6 +1121,12 @@ namespace TouchNStars.Server
                         return starImage;
                     }
                 }
+                catch (PHD2Exception ex) when (ex.Message == "no star selected")
+                {
+                    lastError = ex.Message;
+                    Logger.Debug($"PHD2 star image not available: {ex.Message}");
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     lastError = ex.Message;

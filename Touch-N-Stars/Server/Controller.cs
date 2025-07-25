@@ -1977,6 +1977,20 @@ public class Controller : WebApiController {
             // Write JPG data to response
             Response.OutputStream.Write(jpgBytes, 0, jpgBytes.Length);
         }
+        catch (PHD2Exception ex) when (ex.Message == "no star selected")
+        {
+            Logger.Debug($"PHD2 star image not available: {ex.Message}");
+            HttpContext.Response.StatusCode = 404;
+            HttpContext.Response.ContentType = "application/json";
+            var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 404,
+                Type = "PHD2StarNotSelected"
+            });
+            Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
+        }
         catch (Exception ex)
         {
             Logger.Error($"Error serving PHD2 star image: {ex}");
