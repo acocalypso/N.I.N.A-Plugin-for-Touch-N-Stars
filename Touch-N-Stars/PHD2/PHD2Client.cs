@@ -78,6 +78,25 @@ namespace TouchNStars.PHD2
         public bool IsSettling { get; set; }
         public SettleProgress SettleProgress { get; set; }
         public StarLostInfo LastStarLost { get; set; }
+        public GuideStarInfo CurrentStar { get; set; }
+    }
+
+    public class GuideStarInfo
+    {
+        public double SNR { get; set; }
+        public double HFD { get; set; }
+        public double StarMass { get; set; }
+        public DateTime LastUpdate { get; set; }
+    }
+
+    public class StarImageData
+    {
+        public int Frame { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public double StarPosX { get; set; }
+        public double StarPosY { get; set; }
+        public string Pixels { get; set; } // Base64 encoded 16-bit pixel data
     }
 
     internal class PHD2Connection : IDisposable
@@ -210,6 +229,7 @@ namespace TouchNStars.PHD2
         public string Version { get; private set; }
         public string PHDSubver { get; private set; }
         public StarLostInfo LastStarLost { get; private set; }
+        public GuideStarInfo CurrentStar { get; private set; } = new GuideStarInfo();
         private SettleProgress settle;
 
         public PHD2Client(string hostname = "localhost", uint instance = 1)
@@ -385,6 +405,15 @@ namespace TouchNStars.PHD2
                     }
                     AppState = "Guiding";
                     AvgDist = (double)eventObj["AvgDist"];
+                    
+                    // Update current star info from GuideStep event
+                    if (CurrentStar != null)
+                    {
+                        if (eventObj["SNR"] != null) CurrentStar.SNR = (double)eventObj["SNR"];
+                        if (eventObj["HFD"] != null) CurrentStar.HFD = (double)eventObj["HFD"];
+                        if (eventObj["StarMass"] != null) CurrentStar.StarMass = (double)eventObj["StarMass"];
+                        CurrentStar.LastUpdate = DateTime.Now;
+                    }
                     break;
 
                 case "GuidingStopped":
@@ -676,7 +705,14 @@ namespace TouchNStars.PHD2
                 IsGuiding = IsGuiding(),
                 IsSettling = settle != null,
                 SettleProgress = settle,
-                LastStarLost = LastStarLost
+                LastStarLost = LastStarLost,
+                CurrentStar = CurrentStar != null ? new GuideStarInfo
+                {
+                    SNR = CurrentStar.SNR,
+                    HFD = CurrentStar.HFD,
+                    StarMass = CurrentStar.StarMass,
+                    LastUpdate = CurrentStar.LastUpdate
+                } : null
             };
         }
 
@@ -1001,6 +1037,58 @@ namespace TouchNStars.PHD2
             }
             
             throw new PHD2Exception("find_star did not return valid coordinates");
+        }
+
+        /// <summary>
+        /// Save the current image from PHD2 to a FITS file
+        /// </summary>
+        /// <returns>The full path to the saved FITS image file</returns>
+        public string SaveImage()
+        {
+            CheckConnected();
+            var result = Call("save_image");
+            var filename = (string)result["result"]["filename"];
+            
+            if (string.IsNullOrEmpty(filename))
+                throw new PHD2Exception("save_image did not return a valid filename");
+                
+            return filename;
+        }
+
+        /// <summary>
+        /// Get the star image from PHD2 as base64 encoded data
+        /// </summary>
+        /// <param name="size">Optional size parameter for the image (minimum 15 pixels, default 15)</param>
+        /// <returns>Star image data including dimensions, star position, and base64 encoded pixels</returns>
+        public StarImageData GetStarImage(int? size = null)
+        {
+            CheckConnected();
+            
+            JObject result;
+            if (size.HasValue)
+            {
+                // PHD2 requires size >= 15
+                int actualSize = Math.Max(15, size.Value);
+                result = Call("get_star_image", new JValue(actualSize));
+            }
+            else
+            {
+                result = Call("get_star_image");
+            }
+            
+            var resultData = result["result"];
+            if (resultData == null)
+                throw new PHD2Exception("get_star_image returned null result");
+            
+            return new StarImageData
+            {
+                Frame = (int)resultData["frame"],
+                Width = (int)resultData["width"], 
+                Height = (int)resultData["height"],
+                StarPosX = (double)resultData["star_pos"][0],
+                StarPosY = (double)resultData["star_pos"][1],
+                Pixels = (string)resultData["pixels"]
+            };
         }
 
         private bool IsGuiding()

@@ -53,6 +53,7 @@ public class Controller : WebApiController {
     );
     private static readonly object _fileLock = new();
     private static PHD2Service phd2Service = new PHD2Service();
+    private static PHD2ImageService phd2ImageService = new PHD2ImageService(phd2Service);
 
 
 
@@ -433,6 +434,7 @@ public class Controller : WebApiController {
     // PHD2 API Endpoints
 
     public static void CleanupPHD2Service() {
+        phd2ImageService?.Dispose();
         phd2Service?.Dispose();
     }
 
@@ -873,6 +875,52 @@ public class Controller : WebApiController {
             var settling = await settlingTask;
             var pixelScale = await pixelScaleTask;
 
+            // Try to get star image info if available
+            object starImageInfo = null;
+            try
+            {
+                if (phd2Service.IsConnected && (status?.AppState == "Guiding" || status?.AppState == "Looping"))
+                {
+                    var starImage = await phd2Service.GetStarImageAsync(15); // Get minimal size star image for info
+                    if (starImage != null)
+                    {
+                        starImageInfo = new {
+                            Available = true,
+                            Frame = starImage.Frame,
+                            Width = starImage.Width,
+                            Height = starImage.Height,
+                            StarPosition = new {
+                                X = starImage.StarPosX,
+                                Y = starImage.StarPosY
+                            },
+                            StarInfo = status?.CurrentStar != null ? new {
+                                SNR = status.CurrentStar.SNR,
+                                HFD = status.CurrentStar.HFD,
+                                StarMass = status.CurrentStar.StarMass,
+                                LastUpdate = status.CurrentStar.LastUpdate,
+                                TimeSinceUpdate = DateTime.Now - status.CurrentStar.LastUpdate
+                            } : null
+                        };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Could not get star image info: {ex.Message}");
+                starImageInfo = new {
+                    Available = false,
+                    Error = ex.Message
+                };
+            }
+
+            if (starImageInfo == null)
+            {
+                starImageInfo = new {
+                    Available = false,
+                    Reason = "Not guiding or looping"
+                };
+            }
+
             var allInfo = new {
                 Connection = new {
                     IsConnected = phd2Service.IsConnected,
@@ -882,11 +930,13 @@ public class Controller : WebApiController {
                 EquipmentProfiles = profiles,
                 Settling = settling,
                 PixelScale = pixelScale,
+                StarImage = starImageInfo,
                 Capabilities = new {
                     CanGuide = phd2Service.IsConnected && (status?.AppState == "Guiding" || status?.AppState == "Looping" || status?.AppState == "Stopped"),
                     CanDither = phd2Service.IsConnected && status?.AppState == "Guiding",
                     CanPause = phd2Service.IsConnected && status?.AppState == "Guiding",
-                    CanLoop = phd2Service.IsConnected && status?.AppState == "Stopped"
+                    CanLoop = phd2Service.IsConnected && status?.AppState == "Stopped",
+                    CanGetStarImage = phd2Service.IsConnected && (status?.AppState == "Guiding" || status?.AppState == "Looping")
                 },
                 GuideStats = status?.Stats != null ? new {
                     RmsTotal = status.Stats.RmsTotal,
@@ -1183,20 +1233,39 @@ public class Controller : WebApiController {
         try {
             var position = await phd2Service.GetLockPositionAsync();
             
+            if (position == null || position.Length < 2) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Keine Daten vorhanden - PHD2 ist derzeit nicht am guidenden oder es wurde keine Lock-Position festgelegt",
+                    StatusCode = 400,
+                    Type = "NoDataAvailable"
+                };
+            }
+            
             return new ApiResponse {
                 Success = true,
                 Response = new { LockPosition = new { X = position[0], Y = position[1] } },
                 StatusCode = 200,
                 Type = "PHD2Parameter"
             };
-        } catch (Exception ex) {
+        } catch (InvalidOperationException ex) when (ex.Message.Contains("PHD2 not connected")) {
             Logger.Error(ex);
             HttpContext.Response.StatusCode = 500;
             return new ApiResponse {
                 Success = false,
-                Error = ex.Message,
+                Error = "PHD2 ist nicht erreichbar",
                 StatusCode = 500,
-                Type = "Error"
+                Type = "PHD2NotConnected"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 400;
+            return new ApiResponse {
+                Success = false,
+                Error = "Keine Daten vorhanden - " + ex.Message,
+                StatusCode = 400,
+                Type = "NoDataAvailable"
             };
         }
     }
@@ -1740,6 +1809,201 @@ public class Controller : WebApiController {
                 StatusCode = 500,
                 Type = "Error"
             };
+        }
+    }
+
+    // PHD2 Image API Endpoints
+
+    [Route(HttpVerbs.Get, "/phd2/current-image")]
+    public async Task GetPHD2CurrentImage()
+    {
+        try
+        {
+            var imageBytes = await phd2ImageService.GetCurrentImageBytesAsync();
+            
+            if (imageBytes == null)
+            {
+                HttpContext.Response.StatusCode = 404;
+                HttpContext.Response.ContentType = "application/json";
+                var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+                {
+                    Success = false,
+                    Error = phd2ImageService.LastError ?? "No current PHD2 image available",
+                    StatusCode = 404,
+                    Type = "PHD2ImageNotFound"
+                });
+                Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
+                return;
+            }
+
+            HttpContext.Response.ContentType = "image/jpeg";
+            HttpContext.Response.StatusCode = 200;
+            HttpContext.Response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
+            HttpContext.Response.Headers.Add("Pragma", "no-cache");
+            HttpContext.Response.Headers.Add("Expires", "0");
+            HttpContext.Response.Headers.Add("Last-Modified", phd2ImageService.LastImageTime.ToString("R"));
+            
+            Response.OutputStream.Write(imageBytes, 0, imageBytes.Length);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Error serving PHD2 image: {ex}");
+            HttpContext.Response.StatusCode = 500;
+            HttpContext.Response.ContentType = "application/json";
+            var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            });
+            Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/phd2/image-info")]
+    public async Task<ApiResponse> GetPHD2ImageInfo()
+    {
+        try
+        {
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    HasCurrentImage = phd2ImageService.HasCurrentImage,
+                    LastImageTime = phd2ImageService.LastImageTime,
+                    LastError = phd2ImageService.LastError,
+                    TimeSinceLastImage = phd2ImageService.HasCurrentImage ? 
+                        DateTime.Now - phd2ImageService.LastImageTime : (TimeSpan?)null
+                },
+                StatusCode = 200,
+                Type = "PHD2ImageInfo"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/phd2/refresh-image")]
+    public async Task<ApiResponse> RefreshPHD2Image()
+    {
+        try
+        {
+            bool success = await phd2ImageService.RefreshImageAsync();
+            
+            return new ApiResponse
+            {
+                Success = success,
+                Response = new
+                {
+                    ImageRefreshed = success,
+                    LastImageTime = phd2ImageService.LastImageTime,
+                    Error = phd2ImageService.LastError
+                },
+                StatusCode = success ? 200 : 400,
+                Type = "PHD2ImageRefresh"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/phd2/star-image")]
+    public async Task GetPHD2StarImage([QueryField] int size)
+    {
+        try
+        {
+            // PHD2 requires size >= 15, default to 15 if not specified or too small
+            int requestedSize = size > 0 ? Math.Max(15, size) : 15;
+            
+            // Get star image data from PHD2
+            var starImageData = await phd2Service.GetStarImageAsync(requestedSize);
+            
+            if (starImageData == null)
+            {
+                HttpContext.Response.StatusCode = 404;
+                HttpContext.Response.ContentType = "application/json";
+                var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+                {
+                    Success = false,
+                    Error = phd2Service.LastError ?? "No PHD2 star image available",
+                    StatusCode = 404,
+                    Type = "PHD2StarImageNotFound"
+                });
+                Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
+                return;
+            }
+
+            // Convert base64 pixel data to JPG - no additional scaling needed as PHD2 already provides correct size
+            byte[] jpgBytes = ImageConverter.ConvertBase64StarImageToJpg(
+                starImageData.Pixels, 
+                starImageData.Width, 
+                starImageData.Height, 
+                null // Don't scale further as PHD2 already provided the requested size
+            );
+
+            // Set response headers
+            HttpContext.Response.ContentType = "image/jpeg";
+            HttpContext.Response.StatusCode = 200;
+            HttpContext.Response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
+            HttpContext.Response.Headers.Add("Pragma", "no-cache");
+            HttpContext.Response.Headers.Add("Expires", "0");
+            HttpContext.Response.Headers.Add("X-Star-Position", $"{starImageData.StarPosX},{starImageData.StarPosY}");
+            HttpContext.Response.Headers.Add("X-Image-Size", $"{starImageData.Width}x{starImageData.Height}");
+            HttpContext.Response.Headers.Add("X-Frame", starImageData.Frame.ToString());
+            HttpContext.Response.Headers.Add("X-Requested-Size", requestedSize.ToString());
+            
+            // Write JPG data to response
+            Response.OutputStream.Write(jpgBytes, 0, jpgBytes.Length);
+        }
+        catch (PHD2Exception ex) when (ex.Message == "no star selected")
+        {
+            Logger.Debug($"PHD2 star image not available: {ex.Message}");
+            HttpContext.Response.StatusCode = 404;
+            HttpContext.Response.ContentType = "application/json";
+            var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 404,
+                Type = "PHD2StarNotSelected"
+            });
+            Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Error serving PHD2 star image: {ex}");
+            HttpContext.Response.StatusCode = 500;
+            HttpContext.Response.ContentType = "application/json";
+            var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            });
+            Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
         }
     }
 }

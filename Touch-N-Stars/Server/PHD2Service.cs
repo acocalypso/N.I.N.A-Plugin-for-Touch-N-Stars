@@ -1065,6 +1065,77 @@ namespace TouchNStars.Server
             });
         }
 
+        /// <summary>
+        /// Save the current image from PHD2 to a FITS file
+        /// </summary>
+        /// <returns>The full path to the saved FITS image file</returns>
+        public async Task<string> SaveImageAsync()
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        var filename = client.SaveImage();
+                        lastError = null;
+                        Logger.Debug($"PHD2 image saved to: {filename}");
+                        return filename;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to save PHD2 image: {ex}");
+                    throw;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Get the star image from PHD2 as base64 encoded data
+        /// </summary>
+        /// <param name="size">Optional size parameter for the image</param>
+        /// <returns>Star image data including dimensions, star position, and base64 encoded pixels</returns>
+        public async Task<StarImageData> GetStarImageAsync(int? size = null)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    lock (lockObject)
+                    {
+                        if (client == null || !client.IsConnected)
+                        {
+                            throw new InvalidOperationException("PHD2 not connected");
+                        }
+
+                        var starImage = client.GetStarImage(size);
+                        lastError = null;
+                        Logger.Debug($"PHD2 star image retrieved: {starImage.Width}x{starImage.Height}, star at ({starImage.StarPosX}, {starImage.StarPosY})");
+                        return starImage;
+                    }
+                }
+                catch (PHD2Exception ex) when (ex.Message == "no star selected")
+                {
+                    lastError = ex.Message;
+                    Logger.Debug($"PHD2 star image not available: {ex.Message}");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex.Message;
+                    Logger.Error($"Failed to get PHD2 star image: {ex}");
+                    throw;
+                }
+            });
+        }
+
         public void Dispose()
         {
             try

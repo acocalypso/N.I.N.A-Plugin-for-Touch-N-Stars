@@ -77,7 +77,11 @@ namespace TouchNStars.Server {
                 server.RunAsync(apiToken.Token).Wait();
             } catch (Exception ex) {
                 Logger.Error($"failed to start web server: {ex}");
-                Notification.ShowError($"Failed to start web server, see NINA log for details");
+                try {
+                    Notification.ShowError($"Failed to start web server, see NINA log for details");
+                } catch (Exception notificationEx) {
+                    Logger.Warning($"Failed to show error notification: {notificationEx.Message}");
+                }
             }
         }
     }
