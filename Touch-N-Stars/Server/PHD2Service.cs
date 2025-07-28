@@ -24,37 +24,87 @@ namespace TouchNStars.Server
         {
             return await Task.Run(() =>
             {
-                try
+                const int maxRetries = 3;
+                int attemptCount = 0;
+                
+                while (attemptCount < maxRetries)
                 {
-                    lock (lockObject)
+                    attemptCount++;
+                    
+                    try
                     {
-                        Logger.Info($"Attempting to connect to PHD2 at {hostname}, instance {instance}");
-                        
-                        if (client != null && client.IsConnected)
+                        lock (lockObject)
                         {
-                            Logger.Info("Disconnecting existing PHD2 client");
-                            client.Disconnect();
-                        }
+                            Logger.Info($"PHD2 connection attempt {attemptCount}/{maxRetries} to {hostname}, instance {instance}");
+                            
+                            // Defensive disconnect of existing connection
+                            if (client != null && client.IsConnected)
+                            {
+                                try
+                                {
+                                    Logger.Debug("Gracefully disconnecting existing PHD2 client");
+                                    client.Disconnect();
+                                }
+                                catch (Exception disconnectEx)
+                                {
+                                    Logger.Warning($"Error during graceful disconnect: {disconnectEx.Message}");
+                                }
+                            }
 
-                        ushort port = (ushort)(4400 + instance - 1);
-                        Logger.Info($"Creating PHD2 client for {hostname}:{port}");
+                            ushort port = (ushort)(4400 + instance - 1);
+                            
+                            // Check if PHD2 might be starting up
+                            if (attemptCount == 1)
+                            {
+                                Logger.Info($"Checking PHD2 availability at {hostname}:{port}");
+                                using (var tcpClient = new System.Net.Sockets.TcpClient())
+                                {
+                                    var connectTask = tcpClient.ConnectAsync(hostname, port);
+                                    if (!connectTask.Wait(TimeSpan.FromSeconds(2)))
+                                    {
+                                        Logger.Info("PHD2 not immediately available, will retry");
+                                        throw new TimeoutException("PHD2 connection timeout");
+                                    }
+                                }
+                            }
+                            
+                            Logger.Debug($"Creating PHD2 client for {hostname}:{port}");
+                            client = new PHD2Client(hostname, instance);
+                            
+                            Logger.Debug("Attempting PHD2 client connection");
+                            client.Connect();
+                            
+                            if (client.IsConnected)
+                            {
+                                Logger.Info($"PHD2 connection successful on attempt {attemptCount}");
+                                lastError = null;
+                                return true;
+                            }
+                            else
+                            {
+                                throw new InvalidOperationException("Client reports not connected after Connect() call");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        string errorMsg = $"PHD2 connection attempt {attemptCount} failed: {ex.Message}";
+                        Logger.Warning(errorMsg);
                         
-                        client = new PHD2Client(hostname, instance);
-                        Logger.Info("Calling client.Connect()");
-                        client.Connect();
-                        
-                        Logger.Info($"PHD2 connection successful. IsConnected: {client.IsConnected}");
-                        lastError = null;
-                        return true;
+                        if (attemptCount < maxRetries)
+                        {
+                            Logger.Info($"Retrying PHD2 connection in {attemptCount * 500}ms...");
+                            System.Threading.Thread.Sleep(attemptCount * 500); // Progressive backoff
+                        }
+                        else
+                        {
+                            lastError = $"Failed to connect to PHD2 at {hostname}:{4400 + instance - 1} after {maxRetries} attempts: {ex.Message}";
+                            Logger.Error($"All PHD2 connection attempts failed: {ex}");
+                        }
                     }
                 }
-                catch (Exception ex)
-                {
-                    lastError = $"Failed to connect to PHD2 at {hostname}:{4400 + instance - 1}: {ex.Message}";
-                    Logger.Error($"Failed to connect to PHD2: {ex}");
-                    Logger.Error($"Stack trace: {ex.StackTrace}");
-                    return false;
-                }
+                
+                return false;
             });
         }
 
@@ -1091,7 +1141,16 @@ namespace TouchNStars.Server
                 catch (Exception ex)
                 {
                     lastError = ex.Message;
-                    Logger.Error($"Failed to save PHD2 image: {ex}");
+                    
+                    // "no image available" is expected when PHD2 hasn't captured an image yet
+                    if (ex.Message.Contains("no image available"))
+                    {
+                        Logger.Debug($"PHD2 image not available yet: {ex.Message}");
+                    }
+                    else
+                    {
+                        Logger.Error($"Failed to save PHD2 image: {ex}");
+                    }
                     throw;
                 }
             });
@@ -1136,20 +1195,59 @@ namespace TouchNStars.Server
             });
         }
 
+        private bool disposed = false;
+
         public void Dispose()
         {
-            try
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposed)
             {
-                lock (lockObject)
+                if (disposing)
                 {
-                    client?.Dispose();
-                    client = null;
+                    try
+                    {
+                        lock (lockObject)
+                        {
+                            Logger.Debug("Disposing PHD2Service");
+                            
+                            // Gracefully disconnect first
+                            if (client != null && client.IsConnected)
+                            {
+                                try
+                                {
+                                    Logger.Debug("Disconnecting PHD2 client during dispose");
+                                    client.Disconnect();
+                                }
+                                catch (Exception disconnectEx)
+                                {
+                                    Logger.Warning($"Error during PHD2 disconnect in dispose: {disconnectEx.Message}");
+                                }
+                            }
+
+                            // Dispose the client
+                            client?.Dispose();
+                            client = null;
+                            
+                            Logger.Debug("PHD2Service disposed successfully");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Error disposing PHD2Service: {ex}");
+                    }
                 }
+                disposed = true;
             }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error disposing PHD2Service: {ex}");
-            }
+        }
+
+        ~PHD2Service()
+        {
+            Dispose(false);
         }
     }
 }
