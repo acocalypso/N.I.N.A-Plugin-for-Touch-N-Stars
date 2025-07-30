@@ -86,9 +86,12 @@ namespace TouchNStars {
                 ShowNotificationIfPortChanged();
             }
 
-            // Handle ToastNotifications culture issues on German systems
+            // Handle ToastNotifications culture issues on German systems  
             try {
-                System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+                var enCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+                System.Globalization.CultureInfo.CurrentUICulture = enCulture;
+                System.Threading.Thread.CurrentThread.CurrentUICulture = enCulture;
+                System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = enCulture;
             } catch (Exception ex) {
                 Logger.Debug($"Could not set UI culture to en-US: {ex.Message}");
             }

@@ -119,8 +119,17 @@ namespace TouchNStars.Server
                 {
                     lastError = ex.Message;
                 }
-                Logger.Error($"Failed to refresh PHD2 image: {ex}");
-                Logger.Error($"Stack trace: {ex.StackTrace}");
+                
+                // "no image available" is expected when PHD2 hasn't captured an image yet
+                if (ex.Message.Contains("no image available"))
+                {
+                    Logger.Debug($"PHD2 image not available yet: {ex.Message}");
+                }
+                else
+                {
+                    Logger.Error($"Failed to refresh PHD2 image: {ex}");
+                    Logger.Error($"Stack trace: {ex.StackTrace}");
+                }
                 return false;
             }
             finally

@@ -52,10 +52,46 @@ public class Controller : WebApiController {
      "NINA", "TnsCache", "favorites.json"
     );
     private static readonly object _fileLock = new();
-    private static PHD2Service phd2Service = new PHD2Service();
-    private static PHD2ImageService phd2ImageService = new PHD2ImageService(phd2Service);
+    private static PHD2Service phd2Service;
+    private static PHD2ImageService phd2ImageService;
+    private static readonly object phd2InitLock = new object();
 
-
+    private static void EnsurePHD2ServicesInitialized()
+    {
+        if (phd2Service == null || phd2ImageService == null)
+        {
+            lock (phd2InitLock)
+            {
+                if (phd2Service == null)
+                {
+                    try
+                    {
+                        Logger.Debug("Initializing PHD2Service on demand");
+                        phd2Service = new PHD2Service();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to initialize PHD2Service: {ex}");
+                        throw;
+                    }
+                }
+                
+                if (phd2ImageService == null && phd2Service != null)
+                {
+                    try
+                    {
+                        Logger.Debug("Initializing PHD2ImageService on demand");
+                        phd2ImageService = new PHD2ImageService(phd2Service);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Failed to initialize PHD2ImageService: {ex}");
+                        throw;
+                    }
+                }
+            }
+        }
+    }
 
     [Route(HttpVerbs.Post, "/favorites")]
     public async Task<ApiResponse> AddFavoriteTarget() {
@@ -441,6 +477,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/status")]
     public async Task<ApiResponse> GetPHD2Status() {
         try {
+            EnsurePHD2ServicesInitialized();
             var status = await phd2Service.GetStatusAsync();
             return new ApiResponse {
                 Success = true,
@@ -463,6 +500,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/connect")]
     public async Task<ApiResponse> ConnectPHD2() {
         try {
+            EnsurePHD2ServicesInitialized();
             string hostname = "localhost";
             uint instance = 1;
 
@@ -505,6 +543,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/disconnect")]
     public async Task<ApiResponse> DisconnectPHD2() {
         try {
+            EnsurePHD2ServicesInitialized();
             await phd2Service.DisconnectAsync();
             
             return new ApiResponse {
@@ -528,6 +567,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/profiles")]
     public async Task<ApiResponse> GetPHD2Profiles() {
         try {
+            EnsurePHD2ServicesInitialized();
             var profiles = await phd2Service.GetEquipmentProfilesAsync();
             
             return new ApiResponse {
@@ -551,6 +591,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/connect-equipment")]
     public async Task<ApiResponse> ConnectPHD2Equipment() {
         try {
+            EnsurePHD2ServicesInitialized();
             string profileName = null;
 
             try {
@@ -595,6 +636,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/disconnect-equipment")]
     public async Task<ApiResponse> DisconnectPHD2Equipment() {
         try {
+            EnsurePHD2ServicesInitialized();
             bool result = await phd2Service.DisconnectEquipmentAsync();
             
             return new ApiResponse {
@@ -618,6 +660,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/start-guiding")]
     public async Task<ApiResponse> StartPHD2Guiding() {
         try {
+            EnsurePHD2ServicesInitialized();
             double settlePixels = 2.0;
             double settleTime = 10.0;
             double settleTimeout = 100.0;
@@ -668,6 +711,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/stop-guiding")]
     public async Task<ApiResponse> StopPHD2Guiding() {
         try {
+            EnsurePHD2ServicesInitialized();
             bool result = await phd2Service.StopGuidingAsync();
             
             return new ApiResponse {
@@ -691,6 +735,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/dither")]
     public async Task<ApiResponse> DitherPHD2() {
         try {
+            EnsurePHD2ServicesInitialized();
             double ditherPixels = 3.0;
             double settlePixels = 2.0;
             double settleTime = 10.0;
@@ -747,6 +792,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/pause")]
     public async Task<ApiResponse> PausePHD2() {
         try {
+            EnsurePHD2ServicesInitialized();
             bool result = await phd2Service.PauseGuidingAsync();
             
             return new ApiResponse {
@@ -770,6 +816,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/unpause")]
     public async Task<ApiResponse> UnpausePHD2() {
         try {
+            EnsurePHD2ServicesInitialized();
             bool result = await phd2Service.UnpauseGuidingAsync();
             
             return new ApiResponse {
@@ -793,6 +840,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/start-looping")]
     public async Task<ApiResponse> StartPHD2Looping() {
         try {
+            EnsurePHD2ServicesInitialized();
             bool result = await phd2Service.StartLoopingAsync();
             
             return new ApiResponse {
@@ -816,6 +864,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/settling")]
     public async Task<ApiResponse> GetPHD2Settling() {
         try {
+            EnsurePHD2ServicesInitialized();
             var settling = await phd2Service.CheckSettlingAsync();
             
             return new ApiResponse {
@@ -839,6 +888,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/pixel-scale")]
     public async Task<ApiResponse> GetPHD2PixelScale() {
         try {
+            EnsurePHD2ServicesInitialized();
             var pixelScale = await phd2Service.GetPixelScaleAsync();
             
             return new ApiResponse {
@@ -862,6 +912,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/all-info")]
     public async Task<ApiResponse> GetAllPHD2Info() {
         try {
+            EnsurePHD2ServicesInitialized();
             // Get all available PHD2 information in parallel
             var statusTask = phd2Service.GetStatusAsync();
             var profilesTask = phd2Service.GetEquipmentProfilesAsync();
@@ -989,6 +1040,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/set-exposure")]
     public async Task<ApiResponse> SetPHD2Exposure() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             if (requestData == null || !requestData.ContainsKey("exposureMs") || requestData["exposureMs"] == null) {
                 HttpContext.Response.StatusCode = 400;
@@ -1033,6 +1085,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-exposure")]
     public async Task<ApiResponse> GetPHD2Exposure() {
         try {
+            EnsurePHD2ServicesInitialized();
             var exposure = await phd2Service.GetExposureAsync();
             
             return new ApiResponse {
@@ -1056,6 +1109,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/set-dec-guide-mode")]
     public async Task<ApiResponse> SetPHD2DecGuideMode() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             if (requestData == null || !requestData.ContainsKey("mode") || requestData["mode"] == null) {
                 HttpContext.Response.StatusCode = 400;
@@ -1091,6 +1145,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-dec-guide-mode")]
     public async Task<ApiResponse> GetPHD2DecGuideMode() {
         try {
+            EnsurePHD2ServicesInitialized();
             var mode = await phd2Service.GetDecGuideModeAsync();
             
             return new ApiResponse {
@@ -1114,6 +1169,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/set-guide-output-enabled")]
     public async Task<ApiResponse> SetPHD2GuideOutputEnabled() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             if (requestData == null || !requestData.ContainsKey("enabled") || requestData["enabled"] == null) {
                 HttpContext.Response.StatusCode = 400;
@@ -1158,6 +1214,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-guide-output-enabled")]
     public async Task<ApiResponse> GetPHD2GuideOutputEnabled() {
         try {
+            EnsurePHD2ServicesInitialized();
             var enabled = await phd2Service.GetGuideOutputEnabledAsync();
             
             return new ApiResponse {
@@ -1181,6 +1238,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/set-lock-position")]
     public async Task<ApiResponse> SetPHD2LockPosition() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             if (requestData == null || !requestData.ContainsKey("x") || !requestData.ContainsKey("y")) {
                 HttpContext.Response.StatusCode = 400;
@@ -1231,6 +1289,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-lock-position")]
     public async Task<ApiResponse> GetPHD2LockPosition() {
         try {
+            EnsurePHD2ServicesInitialized();
             var position = await phd2Service.GetLockPositionAsync();
             
             if (position == null || position.Length < 2) {
@@ -1273,6 +1332,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/find-star")]
     public async Task<ApiResponse> FindPHD2Star() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             int[] roi = null;
             
@@ -1336,6 +1396,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/set-lock-shift-enabled")]
     public async Task<ApiResponse> SetPHD2LockShiftEnabled() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             if (requestData == null || !requestData.ContainsKey("enabled") || requestData["enabled"] == null) {
                 HttpContext.Response.StatusCode = 400;
@@ -1380,6 +1441,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-lock-shift-enabled")]
     public async Task<ApiResponse> GetPHD2LockShiftEnabled() {
         try {
+            EnsurePHD2ServicesInitialized();
             var enabled = await phd2Service.GetLockShiftEnabledAsync();
             
             return new ApiResponse {
@@ -1403,6 +1465,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/set-lock-shift-params")]
     public async Task<ApiResponse> SetPHD2LockShiftParams() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             if (requestData == null || !requestData.ContainsKey("xRate") || !requestData.ContainsKey("yRate")) {
                 HttpContext.Response.StatusCode = 400;
@@ -1457,6 +1520,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-lock-shift-params")]
     public async Task<ApiResponse> GetPHD2LockShiftParams() {
         try {
+            EnsurePHD2ServicesInitialized();
             var parameters = await phd2Service.GetLockShiftParamsAsync();
             
             return new ApiResponse {
@@ -1480,6 +1544,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/set-algo-param")]
     public async Task<ApiResponse> SetPHD2AlgoParam() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             if (requestData == null || !requestData.ContainsKey("axis") || !requestData.ContainsKey("name") || !requestData.ContainsKey("value")) {
                 HttpContext.Response.StatusCode = 400;
@@ -1536,6 +1601,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-algo-param-names")]
     public async Task<ApiResponse> GetPHD2AlgoParamNames([QueryField(true)] string axis) {
         try {
+            EnsurePHD2ServicesInitialized();
             var paramNames = await phd2Service.GetAlgoParamNamesAsync(axis);
             
             return new ApiResponse {
@@ -1568,6 +1634,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-algo-param")]
     public async Task<ApiResponse> GetPHD2AlgoParam([QueryField(true)] string axis, [QueryField(true)] string name) {
         try {
+            EnsurePHD2ServicesInitialized();
             var value = await phd2Service.GetAlgoParamAsync(axis, name);
             
             return new ApiResponse {
@@ -1600,6 +1667,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Post, "/phd2/set-variable-delay-settings")]
     public async Task<ApiResponse> SetPHD2VariableDelaySettings() {
         try {
+            EnsurePHD2ServicesInitialized();
             var requestData = await HttpContext.GetRequestDataAsync<Dictionary<string, object>>();
             if (requestData == null || !requestData.ContainsKey("enabled") || !requestData.ContainsKey("shortDelaySeconds") || !requestData.ContainsKey("longDelaySeconds")) {
                 HttpContext.Response.StatusCode = 400;
@@ -1655,6 +1723,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-variable-delay-settings")]
     public async Task<ApiResponse> GetPHD2VariableDelaySettings() {
         try {
+            EnsurePHD2ServicesInitialized();
             var settings = await phd2Service.GetVariableDelaySettingsAsync();
             
             return new ApiResponse {
@@ -1687,6 +1756,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-connected")]
     public async Task<ApiResponse> GetPHD2Connected() {
         try {
+            EnsurePHD2ServicesInitialized();
             var connected = await phd2Service.GetConnectedAsync();
             
             return new ApiResponse {
@@ -1710,6 +1780,7 @@ public class Controller : WebApiController {
     [Route(HttpVerbs.Get, "/phd2/get-paused")]
     public async Task<ApiResponse> GetPHD2Paused() {
         try {
+            EnsurePHD2ServicesInitialized();
             var paused = await phd2Service.GetPausedAsync();
             
             return new ApiResponse {
@@ -1735,6 +1806,7 @@ public class Controller : WebApiController {
     {
         try
         {
+            EnsurePHD2ServicesInitialized();
             // Check if PHD2 is connected first
             if (!phd2Service.IsConnected)
             {
@@ -1776,6 +1848,7 @@ public class Controller : WebApiController {
     {
         try
         {
+            EnsurePHD2ServicesInitialized();
             // Check if PHD2 is connected first
             if (!phd2Service.IsConnected)
             {
@@ -1819,6 +1892,7 @@ public class Controller : WebApiController {
     {
         try
         {
+            EnsurePHD2ServicesInitialized();
             var imageBytes = await phd2ImageService.GetCurrentImageBytesAsync();
             
             if (imageBytes == null)
@@ -1866,6 +1940,7 @@ public class Controller : WebApiController {
     {
         try
         {
+            EnsurePHD2ServicesInitialized();
             return new ApiResponse
             {
                 Success = true,
@@ -1900,6 +1975,7 @@ public class Controller : WebApiController {
     {
         try
         {
+            EnsurePHD2ServicesInitialized();
             bool success = await phd2ImageService.RefreshImageAsync();
             
             return new ApiResponse
@@ -1934,6 +2010,7 @@ public class Controller : WebApiController {
     {
         try
         {
+            EnsurePHD2ServicesInitialized();
             // PHD2 requires size >= 15, default to 15 if not specified or too small
             int requestedSize = size > 0 ? Math.Max(15, size) : 15;
             
