@@ -12,7 +12,7 @@ namespace TouchNStars.Utility;
 public static class CoreUtility {
     public static readonly string LogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "Logs");
     public static readonly string AfPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NINA", "AutoFocus");
-    public static readonly string Hips2FitsUrl = "http://alaskybis.u-strasbg.fr/hips-image-services/hips2fits";
+    public static readonly string Hips2FitsUrl = "http://alasky.cds.unistra.fr/hips-image-services/hips2fits";
 
     public static async Task<string> GetApiUrl() {
         await TouchNStars.Communicator.GetPort();

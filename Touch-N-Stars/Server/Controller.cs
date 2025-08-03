@@ -429,7 +429,7 @@ public class Controller : WebApiController {
                 }
             } else {
                 HttpClient client = new HttpClient();
-                byte[] image = await client.GetByteArrayAsync($"{CoreUtility.Hips2FitsUrl}?width={width}&height={height}&fov={fov}&ra={ra}&dec={dec}&hips=CDS/P/DSS2/color&projection=STG&format=jpg");
+                byte[] image = await client.GetByteArrayAsync($"{CoreUtility.Hips2FitsUrl}?hips=CDS%2FP%2FDSS2%2Fcolor&ra={ra}&dec={dec}&width={width}&height={height}&fov={fov}&projection=TAN&coordsys=icrs&rotation_angle=0.0&format=jpg");
                 Response.OutputStream.Write(image, 0, image.Length);
 
                 client.Dispose();
