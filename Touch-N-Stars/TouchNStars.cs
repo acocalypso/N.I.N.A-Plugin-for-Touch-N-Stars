@@ -6,6 +6,7 @@ using NINA.Plugin;
 using NINA.Plugin.Interfaces;
 using NINA.Profile.Interfaces;
 using NINA.WPF.Base.Interfaces.ViewModel;
+using System;
 using System.ComponentModel;
 using System.ComponentModel.Composition;
 using System.Runtime.CompilerServices;
@@ -84,6 +85,16 @@ namespace TouchNStars {
                 server.Start();
                 ShowNotificationIfPortChanged();
             }
+
+            // Handle ToastNotifications culture issues on German systems  
+            try {
+                var enCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+                System.Globalization.CultureInfo.CurrentUICulture = enCulture;
+                System.Threading.Thread.CurrentThread.CurrentUICulture = enCulture;
+                System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = enCulture;
+            } catch (Exception ex) {
+                Logger.Debug($"Could not set UI culture to en-US: {ex.Message}");
+            }
         }
 
         public CommunityToolkit.Mvvm.Input.RelayCommand UpdateDefaultPortCommand { get; set; }
@@ -113,7 +124,11 @@ namespace TouchNStars {
 
         private void ShowNotificationIfPortChanged() {
             if (CachedPort != Port) {
-                Notification.ShowInformation("Touch 'N' Stars launched on a different port: " + CachedPort);
+                try {
+                    Notification.ShowInformation("Touch 'N' Stars launched on a different port: " + CachedPort);
+                } catch (Exception ex) {
+                    Logger.Warning($"Failed to show port notification: {ex.Message}");
+                }
             }
         }
 
@@ -148,11 +163,19 @@ namespace TouchNStars {
                     server = new TouchNStarsServer(CachedPort);
                     server.Start();
                     SetHostNames();
-                    Notification.ShowSuccess("Touch 'N' Stars started!");
+                    try {
+                        Notification.ShowSuccess("Touch 'N' Stars started!");
+                    } catch (Exception ex) {
+                        Logger.Warning($"Failed to show startup notification: {ex.Message}");
+                    }
                     ShowNotificationIfPortChanged();
                 } else {
                     server.Stop();
-                    Notification.ShowSuccess("Touch 'N' Stars stopped!");
+                    try {
+                        Notification.ShowSuccess("Touch 'N' Stars stopped!");
+                    } catch (Exception ex) {
+                        Logger.Warning($"Failed to show shutdown notification: {ex.Message}");
+                    }
                     server = null;
                     CachedPort = -1;
                 }
