@@ -28,6 +28,11 @@ public class FavoriteTarget {
     public string Rotation { get; set; }
 }
 
+public class Setting {
+    public string Key { get; set; }
+    public string Value { get; set; }
+}
+
 public class NGCSearchResult {
     public string Name { get; set; }
     public double RA { get; set; }
@@ -50,6 +55,10 @@ public class Controller : WebApiController {
     private static readonly string FavoritesFilePath = Path.Combine(
      Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
      "NINA", "TnsCache", "favorites.json"
+    );
+    private static readonly string SettingsFilePath = Path.Combine(
+     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+     "NINA", "TnsCache", "settings.json"
     );
     private static readonly object _fileLock = new();
     private static PHD2Service phd2Service;
@@ -204,8 +213,241 @@ public class Controller : WebApiController {
         }
     }
 
+    [Route(HttpVerbs.Post, "/settings")]
+    public async Task<ApiResponse> SaveSetting() {
+        try {
+            var setting = await HttpContext.GetRequestDataAsync<Setting>();
 
+            if (string.IsNullOrEmpty(setting.Key)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Key ist erforderlich",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
 
+            Dictionary<string, string> currentSettings = new();
+            if (File.Exists(SettingsFilePath)) {
+                var json = await File.ReadAllTextAsync(SettingsFilePath);
+                currentSettings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+            }
+
+            currentSettings[setting.Key] = setting.Value;
+
+            lock (_fileLock) {
+                Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath));
+                var updatedJson = System.Text.Json.JsonSerializer.Serialize(
+                    currentSettings,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                File.WriteAllText(SettingsFilePath, updatedJson);
+            }
+
+            return new ApiResponse {
+                Success = true,
+                Response = setting,
+                StatusCode = 200,
+                Type = "Setting"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/settings")]
+    public async Task<Dictionary<string, string>> GetAllSettings() {
+        if (!File.Exists(SettingsFilePath)) return new Dictionary<string, string>();
+
+        var json = await File.ReadAllTextAsync(SettingsFilePath);
+        return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
+    }
+
+    [Route(HttpVerbs.Get, "/settings/{key}")]
+    public async Task<ApiResponse> GetSetting(string key) {
+        try {
+            if (string.IsNullOrEmpty(key)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Key ist erforderlich",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
+
+            if (!File.Exists(SettingsFilePath)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Einstellung nicht gefunden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            var json = await File.ReadAllTextAsync(SettingsFilePath);
+            var settings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+
+            if (!settings.ContainsKey(key)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Einstellung nicht gefunden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            return new ApiResponse {
+                Success = true,
+                Response = new Setting { Key = key, Value = settings[key] },
+                StatusCode = 200,
+                Type = "Setting"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Delete, "/settings/{key}")]
+    public async Task<ApiResponse> DeleteSetting(string key) {
+        try {
+            if (string.IsNullOrEmpty(key)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Key ist erforderlich",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
+
+            if (!File.Exists(SettingsFilePath)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Keine Einstellungen vorhanden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            var json = await File.ReadAllTextAsync(SettingsFilePath);
+            var settings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+
+            if (!settings.ContainsKey(key)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Einstellung nicht gefunden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            settings.Remove(key);
+
+            lock (_fileLock) {
+                var updatedJson = System.Text.Json.JsonSerializer.Serialize(
+                    settings,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                File.WriteAllText(SettingsFilePath, updatedJson);
+            }
+
+            return new ApiResponse {
+                Success = true,
+                Response = $"Einstellung '{key}' gelöscht",
+                StatusCode = 200,
+                Type = "Setting"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Put, "/settings/{key}")]
+    public async Task<ApiResponse> UpdateSetting(string key) {
+        try {
+            if (string.IsNullOrEmpty(key)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Key ist erforderlich",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
+
+            var updatedSetting = await HttpContext.GetRequestDataAsync<Setting>();
+
+            if (!File.Exists(SettingsFilePath)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Keine Einstellungen vorhanden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            var json = await File.ReadAllTextAsync(SettingsFilePath);
+            var settings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+
+            if (!settings.ContainsKey(key)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Einstellung nicht gefunden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            settings[key] = updatedSetting.Value;
+
+            lock (_fileLock) {
+                var updatedJson = System.Text.Json.JsonSerializer.Serialize(
+                    settings,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                File.WriteAllText(SettingsFilePath, updatedJson);
+            }
+
+            return new ApiResponse {
+                Success = true,
+                Response = new Setting { Key = key, Value = settings[key] },
+                StatusCode = 200,
+                Type = "Setting"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
 
     [Route(HttpVerbs.Get, "/logs")]
     public List<Hashtable> GetRecentLogs([QueryField(true)] int count, [QueryField] string level) {
