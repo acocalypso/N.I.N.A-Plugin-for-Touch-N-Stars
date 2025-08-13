@@ -11,12 +11,44 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using TouchNStars.Utility;
 using TouchNStars.PHD2;
 
 namespace TouchNStars.Server;
+
+public class NullableDoubleConverter : JsonConverter<double?> {
+    public override double? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+        if (reader.TokenType == JsonTokenType.Null) {
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.String) {
+            var stringValue = reader.GetString();
+            if (string.IsNullOrEmpty(stringValue)) {
+                return null;
+            }
+            if (double.TryParse(stringValue, out double result)) {
+                return result;
+            }
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.Number) {
+            return reader.GetDouble();
+        }
+        return null;
+    }
+
+    public override void Write(Utf8JsonWriter writer, double? value, JsonSerializerOptions options) {
+        if (value.HasValue) {
+            writer.WriteNumberValue(value.Value);
+        } else {
+            writer.WriteNullValue();
+        }
+    }
+}
 
 public class FavoriteTarget {
     public Guid Id { get; set; } = Guid.NewGuid(); // Wird automatisch gesetzt
@@ -25,7 +57,8 @@ public class FavoriteTarget {
     public double Dec { get; set; }
     public string RaString { get; set; }
     public string DecString { get; set; }
-    public string Rotation { get; set; }
+    [JsonConverter(typeof(NullableDoubleConverter))]
+    public double? Rotation { get; set; }
 }
 
 public class Setting {
@@ -146,10 +179,15 @@ public class Controller : WebApiController {
 
     [Route(HttpVerbs.Get, "/favorites")]
     public async Task<List<FavoriteTarget>> GetFavoriteTargets() {
-        if (!File.Exists(FavoritesFilePath)) return new List<FavoriteTarget>();
+        try {
+            if (!File.Exists(FavoritesFilePath)) return new List<FavoriteTarget>();
 
-        var json = await File.ReadAllTextAsync(FavoritesFilePath);
-        return System.Text.Json.JsonSerializer.Deserialize<List<FavoriteTarget>>(json);
+            var json = await File.ReadAllTextAsync(FavoritesFilePath);
+            return System.Text.Json.JsonSerializer.Deserialize<List<FavoriteTarget>>(json);
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            return new List<FavoriteTarget>();
+        }
     }
 
     [Route(HttpVerbs.Delete, "/favorites/{id}")]
