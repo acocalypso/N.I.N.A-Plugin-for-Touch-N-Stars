@@ -2434,17 +2434,25 @@ public class Controller : WebApiController {
                 Logger.Info($"[TelescopiusProxy] {httpMethod} request to: {targetUrl}");
                 
                 // Log all incoming headers for debugging
-                Logger.Info($"[TelescopiusProxy] Incoming headers count: {HttpContext.Request.Headers.AllKeys?.Length ?? 0}");
-                foreach (string headerName in HttpContext.Request.Headers.AllKeys ?? new string[0])
+                var allKeys = HttpContext.Request.Headers.AllKeys;
+                int headerCount = allKeys != null ? allKeys.Length : 0;
+                Logger.Info($"[TelescopiusProxy] Incoming headers count: {headerCount}");
+                
+                if (allKeys != null)
                 {
-                    string headerValue = HttpContext.Request.Headers[headerName];
-                    if (headerName.ToLower() == "authorization")
+                    foreach (string headerName in allKeys)
                     {
-                        Logger.Info($"[TelescopiusProxy] Header: {headerName} = {headerValue?.Substring(0, Math.Min(30, headerValue.Length ?? 0))}...");
-                    }
-                    else
-                    {
-                        Logger.Debug($"[TelescopiusProxy] Header: {headerName} = {headerValue}");
+                        string headerValue = HttpContext.Request.Headers[headerName];
+                        if (headerName.ToLower() == "authorization")
+                        {
+                            int maxLength = headerValue != null ? Math.Min(30, headerValue.Length) : 0;
+                            string truncatedValue = headerValue != null ? headerValue.Substring(0, maxLength) : "null";
+                            Logger.Info($"[TelescopiusProxy] Header: {headerName} = {truncatedValue}...");
+                        }
+                        else
+                        {
+                            Logger.Debug($"[TelescopiusProxy] Header: {headerName} = {headerValue}");
+                        }
                     }
                 }
 
