@@ -2431,6 +2431,7 @@ public class Controller : WebApiController {
 
             using (HttpClient client = new HttpClient())
             {
+                Logger.Debug($"[TelescopiusProxy] {httpMethod} request to: {targetUrl}");
 
                 HttpRequestMessage request = new HttpRequestMessage();
                 request.Method = new HttpMethod(httpMethod);
@@ -2443,11 +2444,31 @@ public class Controller : WebApiController {
                     {
                         try
                         {
-                            request.Headers.Add(headerName, HttpContext.Request.Headers[headerName]);
+                            // Handle Authorization header specially
+                            if (headerName.ToLower() == "authorization")
+                            {
+                                string authValue = HttpContext.Request.Headers[headerName];
+                                if (!string.IsNullOrEmpty(authValue))
+                                {
+                                    Logger.Debug($"[TelescopiusProxy] Forwarding Authorization header: {authValue.Substring(0, Math.Min(20, authValue.Length))}...");
+                                    // Remove existing Authorization header if any
+                                    request.Headers.Remove("Authorization");
+                                    request.Headers.Add("Authorization", authValue);
+                                }
+                                else
+                                {
+                                    Logger.Warning("[TelescopiusProxy] Authorization header is empty or null");
+                                }
+                            }
+                            else
+                            {
+                                request.Headers.Add(headerName, HttpContext.Request.Headers[headerName]);
+                            }
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // Ignore invalid headers
+                            // Log header issues for debugging
+                            Logger.Debug($"Failed to copy header '{headerName}': {ex.Message}");
                         }
                     }
                 }
