@@ -2435,14 +2435,12 @@ public class Controller : WebApiController {
                 request.Method = new HttpMethod(httpMethod);
                 request.RequestUri = new Uri(targetUrl);
 
-                // Only add essential headers
+                // Add essential headers
                 string authHeader = HttpContext.Request.Headers["Authorization"];
                 if (!string.IsNullOrEmpty(authHeader))
                 {
                     request.Headers.Add("Authorization", authHeader);
                 }
-
-                // Add minimal Accept header
                 request.Headers.Add("Accept", "application/json, */*");
 
                 // Handle request body for POST/PUT requests
