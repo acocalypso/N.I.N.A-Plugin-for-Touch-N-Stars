@@ -2460,19 +2460,16 @@ public class Controller : WebApiController {
                 request.Method = new HttpMethod(httpMethod);
                 request.RequestUri = new Uri(targetUrl);
 
-                // Add browser-like headers to satisfy CORS requirements
-                request.Headers.Add("Origin", "https://www.telescopius.com");
-                request.Headers.Add("Referer", "https://www.telescopius.com/");
-                request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                // Try with curl-like User-Agent to avoid CORS detection
+                request.Headers.Add("User-Agent", "curl/7.68.0");
                 
-                Logger.Debug("[TelescopiusProxy] Added browser-like headers for CORS compliance");
+                Logger.Debug("[TelescopiusProxy] Using curl-like User-Agent to bypass CORS");
 
                 // Copy headers from original request (except Host and headers we already set)
                 foreach (string headerName in HttpContext.Request.Headers.AllKeys)
                 {
                     string lowerHeaderName = headerName.ToLower();
-                    if (lowerHeaderName != "host" && lowerHeaderName != "content-length" && 
-                        lowerHeaderName != "origin" && lowerHeaderName != "referer" && lowerHeaderName != "user-agent")
+                    if (lowerHeaderName != "host" && lowerHeaderName != "content-length" && lowerHeaderName != "user-agent")
                     {
                         try
                         {
