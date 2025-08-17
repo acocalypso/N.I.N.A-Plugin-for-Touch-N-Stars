@@ -2460,47 +2460,23 @@ public class Controller : WebApiController {
                 request.Method = new HttpMethod(httpMethod);
                 request.RequestUri = new Uri(targetUrl);
 
-                // Try with curl-like User-Agent to avoid CORS detection
-                request.Headers.Add("User-Agent", "curl/7.68.0");
-                
-                Logger.Debug("[TelescopiusProxy] Using curl-like User-Agent to bypass CORS");
+                // Minimal headers for clean server-to-server request
+                Logger.Debug("[TelescopiusProxy] Using minimal headers for server-to-server request");
 
-                // Copy headers from original request (except Host and headers we already set)
-                foreach (string headerName in HttpContext.Request.Headers.AllKeys)
+                // Only add essential headers
+                string authHeader = HttpContext.Request.Headers["Authorization"];
+                if (!string.IsNullOrEmpty(authHeader))
                 {
-                    string lowerHeaderName = headerName.ToLower();
-                    if (lowerHeaderName != "host" && lowerHeaderName != "content-length" && lowerHeaderName != "user-agent")
-                    {
-                        try
-                        {
-                            // Handle Authorization header specially
-                            if (lowerHeaderName == "authorization")
-                            {
-                                string authValue = HttpContext.Request.Headers[headerName];
-                                if (!string.IsNullOrEmpty(authValue))
-                                {
-                                    Logger.Debug($"[TelescopiusProxy] Forwarding Authorization header: {authValue.Substring(0, Math.Min(20, authValue.Length))}...");
-                                    // Remove existing Authorization header if any
-                                    request.Headers.Remove("Authorization");
-                                    request.Headers.Add("Authorization", authValue);
-                                }
-                                else
-                                {
-                                    Logger.Warning("[TelescopiusProxy] Authorization header is empty or null");
-                                }
-                            }
-                            else
-                            {
-                                request.Headers.Add(headerName, HttpContext.Request.Headers[headerName]);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log header issues for debugging
-                            Logger.Debug($"[TelescopiusProxy] Failed to copy header '{headerName}': {ex.Message}");
-                        }
-                    }
+                    Logger.Debug($"[TelescopiusProxy] Adding Authorization header: {authHeader.Substring(0, Math.Min(20, authHeader.Length))}...");
+                    request.Headers.Add("Authorization", authHeader);
                 }
+                else
+                {
+                    Logger.Error("[TelescopiusProxy] No Authorization header found!");
+                }
+
+                // Add minimal Accept header
+                request.Headers.Add("Accept", "application/json, */*");
 
                 // Handle request body for POST/PUT requests
                 if (httpMethod == "POST" || httpMethod == "PUT")
