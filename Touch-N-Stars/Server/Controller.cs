@@ -2431,7 +2431,22 @@ public class Controller : WebApiController {
 
             using (HttpClient client = new HttpClient())
             {
-                Logger.Debug($"[TelescopiusProxy] {httpMethod} request to: {targetUrl}");
+                Logger.Info($"[TelescopiusProxy] {httpMethod} request to: {targetUrl}");
+                
+                // Log all incoming headers for debugging
+                Logger.Info($"[TelescopiusProxy] Incoming headers count: {HttpContext.Request.Headers.AllKeys?.Length ?? 0}");
+                foreach (string headerName in HttpContext.Request.Headers.AllKeys ?? new string[0])
+                {
+                    string headerValue = HttpContext.Request.Headers[headerName];
+                    if (headerName.ToLower() == "authorization")
+                    {
+                        Logger.Info($"[TelescopiusProxy] Header: {headerName} = {headerValue?.Substring(0, Math.Min(30, headerValue.Length ?? 0))}...");
+                    }
+                    else
+                    {
+                        Logger.Debug($"[TelescopiusProxy] Header: {headerName} = {headerValue}");
+                    }
+                }
 
                 HttpRequestMessage request = new HttpRequestMessage();
                 request.Method = new HttpMethod(httpMethod);
@@ -2497,6 +2512,8 @@ public class Controller : WebApiController {
 
                 // Send the request
                 HttpResponseMessage response = await client.SendAsync(request);
+
+                Logger.Info($"[TelescopiusProxy] Response status: {(int)response.StatusCode} {response.StatusCode}");
 
                 // Copy response status
                 HttpContext.Response.StatusCode = (int)response.StatusCode;
