@@ -2394,6 +2394,11 @@ public class Controller : WebApiController {
     {
         try
         {
+            // Set CORS headers FIRST, before any validation
+            HttpContext.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+            HttpContext.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            HttpContext.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+
             // Get the target URL from query parameters
             string targetUrl = HttpContext.Request.QueryString.Get("url");
             if (string.IsNullOrEmpty(targetUrl))
@@ -2431,10 +2436,6 @@ public class Controller : WebApiController {
 
             using (HttpClient client = new HttpClient())
             {
-                // Set CORS headers
-                HttpContext.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-                HttpContext.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-                HttpContext.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
 
                 HttpRequestMessage request = new HttpRequestMessage();
                 request.Method = new HttpMethod(httpMethod);
