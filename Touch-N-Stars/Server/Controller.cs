@@ -2397,7 +2397,7 @@ public class Controller : WebApiController {
             // Set CORS headers FIRST, before any validation
             HttpContext.Response.Headers.Add("Access-Control-Allow-Origin", "*");
             HttpContext.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            HttpContext.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+            HttpContext.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Suppress-Toast-404, X-Requested-With");
 
             // Get the target URL from query parameters
             string targetUrl = HttpContext.Request.QueryString.Get("url");
@@ -2535,7 +2535,7 @@ public class Controller : WebApiController {
             // Set CORS headers even for errors
             HttpContext.Response.Headers.Add("Access-Control-Allow-Origin", "*");
             HttpContext.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            HttpContext.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+            HttpContext.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Suppress-Toast-404, X-Requested-With");
             
             var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
             {
@@ -2556,7 +2556,7 @@ public class Controller : WebApiController {
         HttpContext.Response.StatusCode = 200;
         HttpContext.Response.Headers.Add("Access-Control-Allow-Origin", "*");
         HttpContext.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        HttpContext.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+        HttpContext.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Suppress-Toast-404, X-Requested-With");
         HttpContext.Response.Headers.Add("Access-Control-Max-Age", "86400"); // 24 hours
         
         // Empty response body for preflight
