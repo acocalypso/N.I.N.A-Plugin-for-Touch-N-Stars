@@ -2522,6 +2522,20 @@ public class Controller : WebApiController {
                 HttpResponseMessage response = await client.SendAsync(request);
 
                 Logger.Info($"[TelescopiusProxy] Response status: {(int)response.StatusCode} {response.StatusCode}");
+                
+                // Log response body for 403 errors to see what Telescopius says
+                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    try
+                    {
+                        string errorBody = await response.Content.ReadAsStringAsync();
+                        Logger.Warning($"[TelescopiusProxy] 403 Response body: {errorBody.Substring(0, Math.Min(500, errorBody.Length))}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"[TelescopiusProxy] Could not read 403 response body: {ex.Message}");
+                    }
+                }
 
                 // Copy response status
                 HttpContext.Response.StatusCode = (int)response.StatusCode;
