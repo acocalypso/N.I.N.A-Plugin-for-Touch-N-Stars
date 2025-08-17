@@ -2431,48 +2431,15 @@ public class Controller : WebApiController {
 
             using (HttpClient client = new HttpClient())
             {
-                Logger.Info($"[TelescopiusProxy] {httpMethod} request to: {targetUrl}");
-                
-                // Log all incoming headers for debugging
-                var allKeys = HttpContext.Request.Headers.AllKeys;
-                int headerCount = allKeys != null ? allKeys.Length : 0;
-                Logger.Info($"[TelescopiusProxy] Incoming headers count: {headerCount}");
-                
-                if (allKeys != null)
-                {
-                    foreach (string headerName in allKeys)
-                    {
-                        string headerValue = HttpContext.Request.Headers[headerName];
-                        if (headerName.ToLower() == "authorization")
-                        {
-                            int maxLength = headerValue != null ? Math.Min(30, headerValue.Length) : 0;
-                            string truncatedValue = headerValue != null ? headerValue.Substring(0, maxLength) : "null";
-                            Logger.Info($"[TelescopiusProxy] Header: {headerName} = {truncatedValue}...");
-                        }
-                        else
-                        {
-                            Logger.Debug($"[TelescopiusProxy] Header: {headerName} = {headerValue}");
-                        }
-                    }
-                }
-
                 HttpRequestMessage request = new HttpRequestMessage();
                 request.Method = new HttpMethod(httpMethod);
                 request.RequestUri = new Uri(targetUrl);
-
-                // Minimal headers for clean server-to-server request
-                Logger.Debug("[TelescopiusProxy] Using minimal headers for server-to-server request");
 
                 // Only add essential headers
                 string authHeader = HttpContext.Request.Headers["Authorization"];
                 if (!string.IsNullOrEmpty(authHeader))
                 {
-                    Logger.Debug($"[TelescopiusProxy] Adding Authorization header: {authHeader.Substring(0, Math.Min(20, authHeader.Length))}...");
                     request.Headers.Add("Authorization", authHeader);
-                }
-                else
-                {
-                    Logger.Error("[TelescopiusProxy] No Authorization header found!");
                 }
 
                 // Add minimal Accept header
@@ -2502,22 +2469,6 @@ public class Controller : WebApiController {
 
                 // Send the request
                 HttpResponseMessage response = await client.SendAsync(request);
-
-                Logger.Info($"[TelescopiusProxy] Response status: {(int)response.StatusCode} {response.StatusCode}");
-                
-                // Log response body for 403 errors to see what Telescopius says
-                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                {
-                    try
-                    {
-                        string errorBody = await response.Content.ReadAsStringAsync();
-                        Logger.Warning($"[TelescopiusProxy] 403 Response body: {errorBody.Substring(0, Math.Min(500, errorBody.Length))}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Debug($"[TelescopiusProxy] Could not read 403 response body: {ex.Message}");
-                    }
-                }
 
                 // Copy response status
                 HttpContext.Response.StatusCode = (int)response.StatusCode;
