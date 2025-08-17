@@ -2460,15 +2460,24 @@ public class Controller : WebApiController {
                 request.Method = new HttpMethod(httpMethod);
                 request.RequestUri = new Uri(targetUrl);
 
-                // Copy headers from original request (except Host)
+                // Add browser-like headers to satisfy CORS requirements
+                request.Headers.Add("Origin", "https://www.telescopius.com");
+                request.Headers.Add("Referer", "https://www.telescopius.com/");
+                request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                
+                Logger.Debug("[TelescopiusProxy] Added browser-like headers for CORS compliance");
+
+                // Copy headers from original request (except Host and headers we already set)
                 foreach (string headerName in HttpContext.Request.Headers.AllKeys)
                 {
-                    if (headerName.ToLower() != "host" && headerName.ToLower() != "content-length")
+                    string lowerHeaderName = headerName.ToLower();
+                    if (lowerHeaderName != "host" && lowerHeaderName != "content-length" && 
+                        lowerHeaderName != "origin" && lowerHeaderName != "referer" && lowerHeaderName != "user-agent")
                     {
                         try
                         {
                             // Handle Authorization header specially
-                            if (headerName.ToLower() == "authorization")
+                            if (lowerHeaderName == "authorization")
                             {
                                 string authValue = HttpContext.Request.Headers[headerName];
                                 if (!string.IsNullOrEmpty(authValue))
@@ -2491,7 +2500,7 @@ public class Controller : WebApiController {
                         catch (Exception ex)
                         {
                             // Log header issues for debugging
-                            Logger.Debug($"Failed to copy header '{headerName}': {ex.Message}");
+                            Logger.Debug($"[TelescopiusProxy] Failed to copy header '{headerName}': {ex.Message}");
                         }
                     }
                 }
