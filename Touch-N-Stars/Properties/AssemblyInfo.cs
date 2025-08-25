@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 
 // [MANDATORY] The assembly versioning
 //Should be incremented for each new release build of a plugin
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.1.2.1")]
+[assembly: AssemblyFileVersion("1.1.2.1")]
 
 // [MANDATORY] The name of your plugin
 [assembly: AssemblyTitle("Touch 'N' Stars")]
@@ -59,7 +59,7 @@ This makes handling more mobile and convenient, especially when setting up equip
 ---
 
 ## **Installation:**
-**Please see the instructions in our Wiki** [GitHub Wiki](https://github.com/Touch-N-Stars/Touch-N-Stars/wiki/Touch'N'Stars-Wiki)
+**Please see the instructions in our Wiki** [GitHub Wiki](https://github.com/Touch-N-Stars/Touch-N-Stars/wiki/)
 
 ---
 

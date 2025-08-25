@@ -11,12 +11,44 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using TouchNStars.Utility;
 using TouchNStars.PHD2;
 
 namespace TouchNStars.Server;
+
+public class NullableDoubleConverter : JsonConverter<double?> {
+    public override double? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {
+        if (reader.TokenType == JsonTokenType.Null) {
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.String) {
+            var stringValue = reader.GetString();
+            if (string.IsNullOrEmpty(stringValue)) {
+                return null;
+            }
+            if (double.TryParse(stringValue, out double result)) {
+                return result;
+            }
+            return null;
+        }
+        if (reader.TokenType == JsonTokenType.Number) {
+            return reader.GetDouble();
+        }
+        return null;
+    }
+
+    public override void Write(Utf8JsonWriter writer, double? value, JsonSerializerOptions options) {
+        if (value.HasValue) {
+            writer.WriteNumberValue(value.Value);
+        } else {
+            writer.WriteNullValue();
+        }
+    }
+}
 
 public class FavoriteTarget {
     public Guid Id { get; set; } = Guid.NewGuid(); // Wird automatisch gesetzt
@@ -25,7 +57,13 @@ public class FavoriteTarget {
     public double Dec { get; set; }
     public string RaString { get; set; }
     public string DecString { get; set; }
-    public string Rotation { get; set; }
+    [JsonConverter(typeof(NullableDoubleConverter))]
+    public double? Rotation { get; set; }
+}
+
+public class Setting {
+    public string Key { get; set; }
+    public string Value { get; set; }
 }
 
 public class NGCSearchResult {
@@ -50,6 +88,10 @@ public class Controller : WebApiController {
     private static readonly string FavoritesFilePath = Path.Combine(
      Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
      "NINA", "TnsCache", "favorites.json"
+    );
+    private static readonly string SettingsFilePath = Path.Combine(
+     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+     "NINA", "TnsCache", "settings.json"
     );
     private static readonly object _fileLock = new();
     private static PHD2Service phd2Service;
@@ -137,10 +179,15 @@ public class Controller : WebApiController {
 
     [Route(HttpVerbs.Get, "/favorites")]
     public async Task<List<FavoriteTarget>> GetFavoriteTargets() {
-        if (!File.Exists(FavoritesFilePath)) return new List<FavoriteTarget>();
+        try {
+            if (!File.Exists(FavoritesFilePath)) return new List<FavoriteTarget>();
 
-        var json = await File.ReadAllTextAsync(FavoritesFilePath);
-        return System.Text.Json.JsonSerializer.Deserialize<List<FavoriteTarget>>(json);
+            var json = await File.ReadAllTextAsync(FavoritesFilePath);
+            return System.Text.Json.JsonSerializer.Deserialize<List<FavoriteTarget>>(json);
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            return new List<FavoriteTarget>();
+        }
     }
 
     [Route(HttpVerbs.Delete, "/favorites/{id}")]
@@ -204,8 +251,241 @@ public class Controller : WebApiController {
         }
     }
 
+    [Route(HttpVerbs.Post, "/settings")]
+    public async Task<ApiResponse> SaveSetting() {
+        try {
+            var setting = await HttpContext.GetRequestDataAsync<Setting>();
 
+            if (string.IsNullOrEmpty(setting.Key)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Key ist erforderlich",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
 
+            Dictionary<string, string> currentSettings = new();
+            if (File.Exists(SettingsFilePath)) {
+                var json = await File.ReadAllTextAsync(SettingsFilePath);
+                currentSettings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+            }
+
+            currentSettings[setting.Key] = setting.Value;
+
+            lock (_fileLock) {
+                Directory.CreateDirectory(Path.GetDirectoryName(SettingsFilePath));
+                var updatedJson = System.Text.Json.JsonSerializer.Serialize(
+                    currentSettings,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                File.WriteAllText(SettingsFilePath, updatedJson);
+            }
+
+            return new ApiResponse {
+                Success = true,
+                Response = setting,
+                StatusCode = 200,
+                Type = "Setting"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/settings")]
+    public async Task<Dictionary<string, string>> GetAllSettings() {
+        if (!File.Exists(SettingsFilePath)) return new Dictionary<string, string>();
+
+        var json = await File.ReadAllTextAsync(SettingsFilePath);
+        return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
+    }
+
+    [Route(HttpVerbs.Get, "/settings/{key}")]
+    public async Task<ApiResponse> GetSetting(string key) {
+        try {
+            if (string.IsNullOrEmpty(key)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Key ist erforderlich",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
+
+            if (!File.Exists(SettingsFilePath)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Einstellung nicht gefunden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            var json = await File.ReadAllTextAsync(SettingsFilePath);
+            var settings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+
+            if (!settings.ContainsKey(key)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Einstellung nicht gefunden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            return new ApiResponse {
+                Success = true,
+                Response = new Setting { Key = key, Value = settings[key] },
+                StatusCode = 200,
+                Type = "Setting"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Delete, "/settings/{key}")]
+    public async Task<ApiResponse> DeleteSetting(string key) {
+        try {
+            if (string.IsNullOrEmpty(key)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Key ist erforderlich",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
+
+            if (!File.Exists(SettingsFilePath)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Keine Einstellungen vorhanden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            var json = await File.ReadAllTextAsync(SettingsFilePath);
+            var settings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+
+            if (!settings.ContainsKey(key)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Einstellung nicht gefunden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            settings.Remove(key);
+
+            lock (_fileLock) {
+                var updatedJson = System.Text.Json.JsonSerializer.Serialize(
+                    settings,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                File.WriteAllText(SettingsFilePath, updatedJson);
+            }
+
+            return new ApiResponse {
+                Success = true,
+                Response = $"Einstellung '{key}' gelöscht",
+                StatusCode = 200,
+                Type = "Setting"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Put, "/settings/{key}")]
+    public async Task<ApiResponse> UpdateSetting(string key) {
+        try {
+            if (string.IsNullOrEmpty(key)) {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Key ist erforderlich",
+                    StatusCode = 400,
+                    Type = "Error"
+                };
+            }
+
+            var updatedSetting = await HttpContext.GetRequestDataAsync<Setting>();
+
+            if (!File.Exists(SettingsFilePath)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Keine Einstellungen vorhanden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            var json = await File.ReadAllTextAsync(SettingsFilePath);
+            var settings = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+
+            if (!settings.ContainsKey(key)) {
+                return new ApiResponse {
+                    Success = false,
+                    Error = "Einstellung nicht gefunden",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+
+            settings[key] = updatedSetting.Value;
+
+            lock (_fileLock) {
+                var updatedJson = System.Text.Json.JsonSerializer.Serialize(
+                    settings,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+                File.WriteAllText(SettingsFilePath, updatedJson);
+            }
+
+            return new ApiResponse {
+                Success = true,
+                Response = new Setting { Key = key, Value = settings[key] },
+                StatusCode = 200,
+                Type = "Setting"
+            };
+        } catch (Exception ex) {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
 
     [Route(HttpVerbs.Get, "/logs")]
     public List<Hashtable> GetRecentLogs([QueryField(true)] int count, [QueryField] string level) {
@@ -2082,5 +2362,184 @@ public class Controller : WebApiController {
             });
             Response.OutputStream.Write(System.Text.Encoding.UTF8.GetBytes(errorResponse));
         }
+    }
+
+    // Telescopius PIAAPI Proxy Endpoints
+    
+    [Route(HttpVerbs.Get, "/proxy/telescopius")]
+    public async Task ProxyTelescopiusGet()
+    {
+        await ProxyTelescopiusRequest("GET");
+    }
+
+    [Route(HttpVerbs.Post, "/proxy/telescopius")]
+    public async Task ProxyTelescopiusPost()
+    {
+        await ProxyTelescopiusRequest("POST");
+    }
+
+    [Route(HttpVerbs.Put, "/proxy/telescopius")]
+    public async Task ProxyTelescopiusPut()
+    {
+        await ProxyTelescopiusRequest("PUT");
+    }
+
+    [Route(HttpVerbs.Delete, "/proxy/telescopius")]
+    public async Task ProxyTelescopiusDelete()
+    {
+        await ProxyTelescopiusRequest("DELETE");
+    }
+
+    private async Task ProxyTelescopiusRequest(string httpMethod)
+    {
+        try
+        {
+            // Get the target URL from query parameters
+            string targetUrl = HttpContext.Request.QueryString.Get("url");
+            if (string.IsNullOrEmpty(targetUrl))
+            {
+                HttpContext.Response.StatusCode = 400;
+                HttpContext.Response.ContentType = "application/json";
+                var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+                {
+                    Success = false,
+                    Error = "Missing 'url' query parameter",
+                    StatusCode = 400,
+                    Type = "MissingParameter"
+                });
+                var errorBytes = System.Text.Encoding.UTF8.GetBytes(errorResponse);
+                Response.OutputStream.Write(errorBytes, 0, errorBytes.Length);
+                return;
+            }
+
+            // Validate that the URL is for Telescopius PIAAPI
+            if (!targetUrl.Contains("telescopius.com") && !targetUrl.Contains("piaapi"))
+            {
+                HttpContext.Response.StatusCode = 403;
+                HttpContext.Response.ContentType = "application/json";
+                var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+                {
+                    Success = false,
+                    Error = "Proxy only allows Telescopius PIAAPI requests",
+                    StatusCode = 403,
+                    Type = "ProxyForbidden"
+                });
+                var errorBytes = System.Text.Encoding.UTF8.GetBytes(errorResponse);
+                Response.OutputStream.Write(errorBytes, 0, errorBytes.Length);
+                return;
+            }
+
+            using (HttpClient client = new HttpClient())
+            {
+                HttpRequestMessage request = new HttpRequestMessage();
+                request.Method = new HttpMethod(httpMethod);
+                request.RequestUri = new Uri(targetUrl);
+
+                // Add essential headers
+                string authHeader = HttpContext.Request.Headers["Authorization"];
+                if (!string.IsNullOrEmpty(authHeader))
+                {
+                    request.Headers.Add("Authorization", authHeader);
+                }
+                request.Headers.Add("Accept", "application/json, */*");
+
+                // Handle request body for POST/PUT requests
+                if (httpMethod == "POST" || httpMethod == "PUT")
+                {
+                    if (HttpContext.Request.HasEntityBody)
+                    {
+                        using (var reader = new StreamReader(HttpContext.Request.InputStream))
+                        {
+                            string body = await reader.ReadToEndAsync();
+                            if (!string.IsNullOrEmpty(body))
+                            {
+                                request.Content = new StringContent(body);
+                                
+                                if (!string.IsNullOrEmpty(HttpContext.Request.ContentType))
+                                {
+                                    request.Content.Headers.Remove("Content-Type");
+                                    request.Content.Headers.Add("Content-Type", HttpContext.Request.ContentType);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Send the request
+                HttpResponseMessage response = await client.SendAsync(request);
+
+                // Copy response status
+                HttpContext.Response.StatusCode = (int)response.StatusCode;
+
+                // Copy response headers
+                foreach (var header in response.Headers)
+                {
+                    try
+                    {
+                        HttpContext.Response.Headers.Add(header.Key, string.Join(",", header.Value));
+                    }
+                    catch
+                    {
+                        // Ignore problematic headers
+                    }
+                }
+
+                // Copy content headers
+                if (response.Content != null)
+                {
+                    foreach (var header in response.Content.Headers)
+                    {
+                        try
+                        {
+                            if (header.Key.ToLower() == "content-type")
+                            {
+                                HttpContext.Response.ContentType = string.Join(",", header.Value);
+                            }
+                            else
+                            {
+                                HttpContext.Response.Headers.Add(header.Key, string.Join(",", header.Value));
+                            }
+                        }
+                        catch
+                        {
+                            // Ignore problematic headers
+                        }
+                    }
+
+                    // Copy response body
+                    byte[] responseBody = await response.Content.ReadAsByteArrayAsync();
+                    Response.OutputStream.Write(responseBody, 0, responseBody.Length);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Telescopius proxy error: {ex}");
+            HttpContext.Response.StatusCode = 500;
+            HttpContext.Response.ContentType = "application/json";
+            
+            var errorResponse = System.Text.Json.JsonSerializer.Serialize(new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "ProxyError"
+            });
+            var errorBytes = System.Text.Encoding.UTF8.GetBytes(errorResponse);
+            Response.OutputStream.Write(errorBytes, 0, errorBytes.Length);
+        }
+    }
+
+    [Route(HttpVerbs.Options, "/proxy/telescopius")]
+    public Task ProxyTelescopiusOptions()
+    {
+        // Handle CORS preflight requests - headers are already set by CustomHeaderModule
+        HttpContext.Response.StatusCode = 200;
+        HttpContext.Response.Headers.Add("Access-Control-Max-Age", "86400"); // 24 hours
+        
+        // Empty response body for preflight
+        Response.OutputStream.Write(new byte[0], 0, 0);
+        
+        return Task.CompletedTask;
     }
 }

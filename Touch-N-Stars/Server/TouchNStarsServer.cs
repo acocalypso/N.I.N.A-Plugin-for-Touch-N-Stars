@@ -18,7 +18,7 @@ namespace TouchNStars.Server {
         private CancellationTokenSource apiToken;
         public WebServer WebServer;
 
-        private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings", "seq-mon", "flat", "dome", "logs", "switch", "flats", "stellarium", "settings", "plugin1", "plugin2", "plugin3", "plugin4", "plugin5", "plugin6", "plugin7", "plugin8", "plugin9"];
+        private readonly List<string> appEndPoints = ["equipment", "camera", "autofocus", "mount", "guider", "sequence", "settings", "seq-mon", "flat", "dome", "logs", "switch", "flats", "stellarium", "settings", "rotator", "filterwheel", "plugin1", "plugin2", "plugin3", "plugin4", "plugin5", "plugin6", "plugin7", "plugin8", "plugin9"];
 
         private int port;
         public TouchNStarsServer(int port) => this.port = port;
@@ -92,7 +92,7 @@ namespace TouchNStars.Server {
 
         protected override async Task OnRequestAsync(IHttpContext context) {
             context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Suppress-Toast-404, X-Requested-With");
             context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
 
             if (context.Request.HttpVerb == HttpVerbs.Options) {
