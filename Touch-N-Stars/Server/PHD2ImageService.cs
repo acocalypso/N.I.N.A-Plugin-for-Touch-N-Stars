@@ -55,6 +55,9 @@ namespace TouchNStars.Server
             isRefreshing = true;
             try
             {
+                // Wait for any ongoing connection attempt
+                await phd2Service.WaitForConnectionAsync();
+
                 lock (lockObject)
                 {
                     if (!phd2Service.IsConnected)

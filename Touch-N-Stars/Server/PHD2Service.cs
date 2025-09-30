@@ -11,6 +11,30 @@ namespace TouchNStars.Server
         private PHD2Client client;
         private readonly object lockObject = new object();
         private string lastError;
+        private Task<bool> currentConnectionTask = null;
+
+        private async Task WaitForConnectionIfNeeded()
+        {
+            Task<bool> connectionTask = null;
+            lock (lockObject)
+            {
+                if (currentConnectionTask != null && !currentConnectionTask.IsCompleted)
+                {
+                    connectionTask = currentConnectionTask;
+                }
+            }
+
+            if (connectionTask != null)
+            {
+                Logger.Debug("Waiting for ongoing PHD2 connection");
+                await connectionTask;
+            }
+        }
+
+        public async Task WaitForConnectionAsync()
+        {
+            await WaitForConnectionIfNeeded();
+        }
 
         public bool IsConnected => client?.IsConnected ?? false;
         public string LastError => lastError;
@@ -22,15 +46,38 @@ namespace TouchNStars.Server
 
         public async Task<bool> ConnectAsync(string hostname = "localhost", uint instance = 1)
         {
+            lock (lockObject)
+            {
+                if (client?.IsConnected == true)
+                {
+                    Logger.Debug("PHD2 already connected, skipping connection attempt");
+                    return true;
+                }
+
+                if (currentConnectionTask != null && !currentConnectionTask.IsCompleted)
+                {
+                    Logger.Debug("PHD2 connection already in progress, waiting for existing attempt");
+                }
+                else
+                {
+                    currentConnectionTask = ConnectInternalAsync(hostname, instance);
+                }
+            }
+
+            return await currentConnectionTask;
+        }
+
+        private async Task<bool> ConnectInternalAsync(string hostname, uint instance)
+        {
             return await Task.Run(() =>
             {
                 const int maxRetries = 3;
                 int attemptCount = 0;
-                
+
                 while (attemptCount < maxRetries)
                 {
                     attemptCount++;
-                    
+
                     try
                     {
                         lock (lockObject)
@@ -52,22 +99,7 @@ namespace TouchNStars.Server
                             }
 
                             ushort port = (ushort)(4400 + instance - 1);
-                            
-                            // Check if PHD2 might be starting up
-                            if (attemptCount == 1)
-                            {
-                                Logger.Info($"Checking PHD2 availability at {hostname}:{port}");
-                                using (var tcpClient = new System.Net.Sockets.TcpClient())
-                                {
-                                    var connectTask = tcpClient.ConnectAsync(hostname, port);
-                                    if (!connectTask.Wait(TimeSpan.FromSeconds(2)))
-                                    {
-                                        Logger.Info("PHD2 not immediately available, will retry");
-                                        throw new TimeoutException("PHD2 connection timeout");
-                                    }
-                                }
-                            }
-                            
+
                             Logger.Debug($"Creating PHD2 client for {hostname}:{port}");
                             client = new PHD2Client(hostname, instance);
                             
@@ -93,8 +125,8 @@ namespace TouchNStars.Server
                         
                         if (attemptCount < maxRetries)
                         {
-                            Logger.Info($"Retrying PHD2 connection in {attemptCount * 500}ms...");
-                            System.Threading.Thread.Sleep(attemptCount * 500); // Progressive backoff
+                            Logger.Info($"Retrying PHD2 connection in {attemptCount * 1000}ms...");
+                            System.Threading.Thread.Sleep(attemptCount * 1000); // Progressive backoff
                         }
                         else
                         {
@@ -103,7 +135,11 @@ namespace TouchNStars.Server
                         }
                     }
                 }
-                
+
+                lock (lockObject)
+                {
+                    currentConnectionTask = null;
+                }
                 return false;
             });
         }
@@ -382,6 +418,8 @@ namespace TouchNStars.Server
 
         public async Task<PHD2Status> GetStatusAsync()
         {
+            await WaitForConnectionIfNeeded();
+
             return await Task.Run(() =>
             {
                 try
@@ -450,6 +488,8 @@ namespace TouchNStars.Server
 
         public async Task<double> GetPixelScaleAsync()
         {
+            await WaitForConnectionIfNeeded();
+
             return await Task.Run(() =>
             {
                 try
