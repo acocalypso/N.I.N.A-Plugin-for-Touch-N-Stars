@@ -11,6 +11,7 @@ using System;
 using System.ComponentModel.Composition;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 
 namespace TouchNStars.SequenceItems {
@@ -24,6 +25,18 @@ namespace TouchNStars.SequenceItems {
     public class TNSMessageBox : SequenceItem {
         private IWindowServiceFactory windowServiceFactory;
         private Guid? currentMessageBoxId;
+
+        // Static constructor to register the DataTemplate
+        static TNSMessageBox() {
+            try {
+                var resourceDict = new ResourceDictionary {
+                    Source = new Uri("pack://application:,,,/TouchNStars;component/SequenceItems/Templates/TNSMessageBoxResultTemplate.xaml", UriKind.Absolute)
+                };
+                Application.Current?.Resources.MergedDictionaries.Add(resourceDict);
+            } catch (Exception ex) {
+                Logger.Error($"Failed to load TNSMessageBox template: {ex}");
+            }
+        }
 
         [ImportingConstructor]
         public TNSMessageBox(IWindowServiceFactory windowServiceFactory) {
@@ -147,18 +160,30 @@ namespace TouchNStars.SequenceItems {
         }
     }
 
-    public class TNSMessageBoxResult {
+    public class TNSMessageBoxResult : BaseINPC {
+        private Action closeAction;
+
         public TNSMessageBoxResult(string message) {
             this.Message = message;
             Continue = true;
-            ContinueCommand = new RelayCommand((object o) => Continue = true);
-            CancelCommand = new RelayCommand((object o) => Continue = false);
+        }
+
+        public void SetCloseAction(Action action) {
+            closeAction = action;
+            ContinueCommand = new RelayCommand((object o) => {
+                Continue = true;
+                closeAction?.Invoke();
+            });
+            CancelCommand = new RelayCommand((object o) => {
+                Continue = false;
+                closeAction?.Invoke();
+            });
         }
 
         public string Message { get; }
         public bool Continue { get; set; }
 
-        public ICommand ContinueCommand { get; }
-        public ICommand CancelCommand { get; }
+        public ICommand ContinueCommand { get; private set; }
+        public ICommand CancelCommand { get; private set; }
     }
 }

@@ -5,7 +5,8 @@
       "Bash(findstr:*)",
       "Bash(dotnet build)",
       "Bash(Select-String -Pattern \"error|Fehler|Erfolg|succeeded\")",
-      "Read(//c/Users/astro/Documents/TNS/NINA/nina/NINA.Sequencer/SequenceItem/Utility/**)"
+      "Read(//c/Users/astro/Documents/TNS/NINA/nina/NINA.Sequencer/SequenceItem/Utility/**)",
+      "Read(//c/Users/astro/Documents/TNS/NINA/nina/**)"
     ],
     "deny": [],
     "ask": []
