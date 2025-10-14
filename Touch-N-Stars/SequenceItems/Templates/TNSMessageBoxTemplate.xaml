@@ -3,23 +3,29 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:TouchNStars.SequenceItems"
     xmlns:ninactrl="clr-namespace:NINA.CustomControlLibrary;assembly=NINA.CustomControlLibrary"
-    xmlns:mini="clr-namespace:NINA.View.Sequencer.MiniSequencer;assembly=NINA.Sequencer">
+    xmlns:mini="clr-namespace:NINA.View.Sequencer.MiniSequencer;assembly=NINA.Sequencer"
+    xmlns:view="clr-namespace:NINA.View.Sequencer;assembly=NINA.Sequencer"
+    xmlns:ns="clr-namespace:NINA.Core.Locale;assembly=NINA.Core">
 
-    <DataTemplate x:Key="TNSMessageBox_Mini">
+    <DataTemplate x:Key="TouchNStars.SequenceItems.TNSMessageBox_Mini">
         <mini:MiniSequenceItem>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock VerticalAlignment="Center" Text="TNS Message: " />
-                <TextBlock
-                    VerticalAlignment="Center"
-                    FontWeight="Bold"
-                    Text="{Binding Text}"
-                    TextTrimming="CharacterEllipsis" />
-            </StackPanel>
+            <mini:MiniSequenceItem.SequenceItemContent>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Text="TNS: " />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontWeight="Bold"
+                        Text="{Binding Text}"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </mini:MiniSequenceItem.SequenceItemContent>
         </mini:MiniSequenceItem>
     </DataTemplate>
 
     <DataTemplate DataType="{x:Type local:TNSMessageBox}">
-        <Grid>
+        <view:SequenceBlockView>
+            <view:SequenceBlockView.SequenceItemContent>
+                <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -87,5 +93,7 @@
                 </StackPanel>
             </GroupBox>
         </Grid>
+            </view:SequenceBlockView.SequenceItemContent>
+        </view:SequenceBlockView>
     </DataTemplate>
 </ResourceDictionary>

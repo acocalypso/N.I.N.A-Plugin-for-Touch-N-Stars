@@ -26,15 +26,24 @@ namespace TouchNStars.SequenceItems {
         private IWindowServiceFactory windowServiceFactory;
         private Guid? currentMessageBoxId;
 
-        // Static constructor to register the DataTemplate
+        // Static constructor to register the DataTemplates
         static TNSMessageBox() {
             try {
-                var resourceDict = new ResourceDictionary {
+                // Load the MessageBox item template (for Sequencer UI)
+                var itemTemplate = new ResourceDictionary {
+                    Source = new Uri("pack://application:,,,/TouchNStars;component/SequenceItems/Templates/TNSMessageBoxTemplate.xaml", UriKind.Absolute)
+                };
+                Application.Current?.Resources.MergedDictionaries.Add(itemTemplate);
+
+                // Load the MessageBox result template (for Dialog window)
+                var resultTemplate = new ResourceDictionary {
                     Source = new Uri("pack://application:,,,/TouchNStars;component/SequenceItems/Templates/TNSMessageBoxResultTemplate.xaml", UriKind.Absolute)
                 };
-                Application.Current?.Resources.MergedDictionaries.Add(resourceDict);
+                Application.Current?.Resources.MergedDictionaries.Add(resultTemplate);
+
+                Logger.Info("TNSMessageBox templates loaded successfully");
             } catch (Exception ex) {
-                Logger.Error($"Failed to load TNSMessageBox template: {ex}");
+                Logger.Error($"Failed to load TNSMessageBox templates: {ex}");
             }
         }
 
@@ -56,17 +65,45 @@ namespace TouchNStars.SequenceItems {
             };
         }
 
+        private string text = "Message from Touch 'N' Stars Sequence";
         [JsonProperty]
-        public string Text { get; set; } = "Message from Touch 'N' Stars Sequence";
+        public string Text {
+            get => text;
+            set {
+                text = value;
+                RaisePropertyChanged();
+            }
+        }
 
+        private bool closeOnTimeout = false;
         [JsonProperty]
-        public bool CloseOnTimeout { get; set; } = false;
+        public bool CloseOnTimeout {
+            get => closeOnTimeout;
+            set {
+                closeOnTimeout = value;
+                RaisePropertyChanged();
+            }
+        }
 
+        private int timeoutSeconds = 60;
         [JsonProperty]
-        public int TimeoutSeconds { get; set; } = 60;
+        public int TimeoutSeconds {
+            get => timeoutSeconds;
+            set {
+                timeoutSeconds = value;
+                RaisePropertyChanged();
+            }
+        }
 
+        private bool continueOnTimeout = true;
         [JsonProperty]
-        public bool ContinueOnTimeout { get; set; } = true;
+        public bool ContinueOnTimeout {
+            get => continueOnTimeout;
+            set {
+                continueOnTimeout = value;
+                RaisePropertyChanged();
+            }
+        }
 
         public override async Task Execute(IProgress<ApplicationStatus> progress, CancellationToken token) {
             var service = windowServiceFactory.Create();
