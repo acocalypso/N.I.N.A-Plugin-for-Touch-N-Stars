@@ -77,6 +77,9 @@ namespace TouchNStars.SequenceItems {
             bool closedByTimeout = false;
 
             try {
+                // Set the close action so buttons can close the window
+                msgBoxResult.SetCloseAction(() => service?.Close());
+
                 // Register this message box in the global registry
                 var registrationId = MessageBoxRegistry.Register(
                     Text,
