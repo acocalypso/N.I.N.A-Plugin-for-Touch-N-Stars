@@ -25,25 +25,32 @@ namespace TouchNStars.SequenceItems {
     public class TNSMessageBox : SequenceItem {
         private IWindowServiceFactory windowServiceFactory;
         private Guid? currentMessageBoxId;
+        private static bool templatesLoaded = false;
+        private static readonly object templateLock = new object();
 
         // Static constructor to register the DataTemplates
         static TNSMessageBox() {
-            try {
-                // Load the MessageBox item template (for Sequencer UI)
-                var itemTemplate = new ResourceDictionary {
-                    Source = new Uri("pack://application:,,,/TouchNStars;component/SequenceItems/Templates/TNSMessageBoxTemplate.xaml", UriKind.Absolute)
-                };
-                Application.Current?.Resources.MergedDictionaries.Add(itemTemplate);
+            lock (templateLock) {
+                if (!templatesLoaded) {
+                    try {
+                        // Load the MessageBox item template (for Sequencer UI)
+                        var itemTemplate = new ResourceDictionary {
+                            Source = new Uri("pack://application:,,,/TouchNStars;component/SequenceItems/Templates/TNSMessageBoxTemplate.xaml", UriKind.Absolute)
+                        };
+                        Application.Current?.Resources.MergedDictionaries.Add(itemTemplate);
 
-                // Load the MessageBox result template (for Dialog window)
-                var resultTemplate = new ResourceDictionary {
-                    Source = new Uri("pack://application:,,,/TouchNStars;component/SequenceItems/Templates/TNSMessageBoxResultTemplate.xaml", UriKind.Absolute)
-                };
-                Application.Current?.Resources.MergedDictionaries.Add(resultTemplate);
+                        // Load the MessageBox result template (for Dialog window)
+                        var resultTemplate = new ResourceDictionary {
+                            Source = new Uri("pack://application:,,,/TouchNStars;component/SequenceItems/Templates/TNSMessageBoxResultTemplate.xaml", UriKind.Absolute)
+                        };
+                        Application.Current?.Resources.MergedDictionaries.Add(resultTemplate);
 
-                Logger.Info("TNSMessageBox templates loaded successfully");
-            } catch (Exception ex) {
-                Logger.Error($"Failed to load TNSMessageBox templates: {ex}");
+                        templatesLoaded = true;
+                        Logger.Info("TNSMessageBox templates loaded successfully");
+                    } catch (Exception ex) {
+                        Logger.Error($"Failed to load TNSMessageBox templates: {ex}");
+                    }
+                }
             }
         }
 
@@ -130,28 +137,44 @@ namespace TouchNStars.SequenceItems {
                 currentMessageBoxId = registrationId;
 
                 Logger.Info($"TNS MessageBox displayed with ID: {registrationId}");
+                Logger.Info($"TNS MessageBox - Timeout enabled: {CloseOnTimeout}, Timeout: {TimeoutSeconds}s, Continue on timeout: {ContinueOnTimeout}");
 
-                // Create timeout cancellation source if enabled
-                CancellationTokenSource timeoutCts = null;
-                CancellationTokenSource linkedCts = null;
-
+                // Start timeout task if enabled
+                Task timeoutTask = null;
                 if (CloseOnTimeout && TimeoutSeconds > 0) {
-                    timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
-                    linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token, timeoutCts.Token);
+                    Logger.Info($"TNS MessageBox - Starting timeout task for {TimeoutSeconds} seconds");
+                    timeoutTask = Task.Run(async () => {
+                        try {
+                            await Task.Delay(TimeSpan.FromSeconds(TimeoutSeconds), token);
+                            if (!token.IsCancellationRequested) {
+                                closedByTimeout = true;
+                                msgBoxResult.Continue = ContinueOnTimeout;
+                                Logger.Info($"TNS MessageBox - Timeout triggered after {TimeoutSeconds} seconds, Continue: {ContinueOnTimeout}");
+                                service?.Close();
+                            }
+                        } catch (TaskCanceledException) {
+                            Logger.Info($"TNS MessageBox - Timeout task cancelled");
+                        }
+                    });
                 }
 
-                var effectiveToken = linkedCts?.Token ?? token;
-
-                // Register cancellation handlers
-                using (effectiveToken.Register(() => {
-                    if (timeoutCts?.IsCancellationRequested == true) {
-                        closedByTimeout = true;
-                        msgBoxResult.Continue = ContinueOnTimeout;
-                        Logger.Info($"TNS MessageBox timeout after {TimeoutSeconds} seconds");
-                    }
+                // Register cancellation handler for user/API cancellation
+                using (token.Register(() => {
+                    Logger.Info($"TNS MessageBox - User/API cancellation triggered");
                     service?.Close();
                 })) {
+                    Logger.Info($"TNS MessageBox - Showing dialog");
                     await service.ShowDialog(msgBoxResult, "Touch 'N' Stars Message");
+                    Logger.Info($"TNS MessageBox - Dialog closed");
+                }
+
+                // Wait for timeout task to complete if it's running
+                if (timeoutTask != null && !timeoutTask.IsCompleted) {
+                    try {
+                        await timeoutTask;
+                    } catch (Exception ex) {
+                        Logger.Debug($"TNS MessageBox - Timeout task exception: {ex.Message}");
+                    }
                 }
 
                 // Check if closed by API
@@ -162,9 +185,6 @@ namespace TouchNStars.SequenceItems {
                         Logger.Info($"TNS MessageBox closed by API - Continue: {msgBoxResult.Continue}");
                     }
                 }
-
-                timeoutCts?.Dispose();
-                linkedCts?.Dispose();
 
             } finally {
                 // Always unregister when done

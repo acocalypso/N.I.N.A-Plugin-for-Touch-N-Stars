@@ -47,34 +47,72 @@
             </GroupBox>
 
             <!--  Timeout Settings  -->
-            <GroupBox Grid.Row="1" Header="Timeout Settings">
+            <GroupBox Grid.Row="1" Header="Timeout Settings (Optional)">
                 <StackPanel Margin="5" Orientation="Vertical">
+                    <!-- Enable Timeout -->
                     <CheckBox
-                        Margin="0,5,0,5"
-                        Content="Enable Auto-Close Timeout"
-                        IsChecked="{Binding CloseOnTimeout}" />
+                        Margin="0,5,0,10"
+                        Content="Enable Auto-Close after timeout"
+                        IsChecked="{Binding CloseOnTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
+                    <!-- Timeout Duration and Action -->
                     <StackPanel
-                        Margin="0,5,0,0"
+                        Margin="20,0,0,5"
                         IsEnabled="{Binding CloseOnTimeout}"
                         Orientation="Horizontal">
                         <TextBlock
                             Margin="0,0,10,0"
                             VerticalAlignment="Center"
-                            Text="Timeout (seconds):" />
+                            Text="Close after:" />
                         <ninactrl:IntStepperControl
                             MinWidth="100"
                             MaxValue="3600"
                             MinValue="1"
                             StepSize="5"
-                            Value="{Binding TimeoutSeconds}" />
+                            Value="{Binding TimeoutSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock
+                            Margin="5,0,0,0"
+                            VerticalAlignment="Center"
+                            Text="seconds" />
                     </StackPanel>
 
-                    <CheckBox
-                        Margin="0,10,0,5"
-                        Content="Continue sequence on timeout"
-                        IsChecked="{Binding ContinueOnTimeout}"
-                        IsEnabled="{Binding CloseOnTimeout}" />
+                    <!-- What to do on timeout -->
+                    <Grid
+                        Margin="20,5,0,5"
+                        IsEnabled="{Binding CloseOnTimeout}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock
+                            Grid.Column="0"
+                            Margin="0,0,10,0"
+                            VerticalAlignment="Center"
+                            Text="On timeout:" />
+
+                        <CheckBox
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            IsChecked="{Binding ContinueOnTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <StackPanel
+                            Grid.Column="2"
+                            Margin="10,0,0,0"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Text="Continue sequence" />
+                            <TextBlock
+                                Margin="5,0,0,0"
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                Foreground="{StaticResource ButtonForegroundDisabledBrush}"
+                                Text="(OFF = stop)" />
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </GroupBox>
 
