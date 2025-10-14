@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using TouchNStars.Utility;
 using TouchNStars.PHD2;
+using TouchNStars.SequenceItems;
 
 namespace TouchNStars.Server;
 
@@ -2536,10 +2537,257 @@ public class Controller : WebApiController {
         // Handle CORS preflight requests - headers are already set by CustomHeaderModule
         HttpContext.Response.StatusCode = 200;
         HttpContext.Response.Headers.Add("Access-Control-Max-Age", "86400"); // 24 hours
-        
+
         // Empty response body for preflight
         Response.OutputStream.Write(new byte[0], 0, 0);
-        
+
         return Task.CompletedTask;
+    }
+
+    // TNS MessageBox Control Endpoints
+
+    [Route(HttpVerbs.Get, "/messagebox/list")]
+    public ApiResponse GetActiveMessageBoxes()
+    {
+        try
+        {
+            var activeBoxes = MessageBoxRegistry.GetAll();
+            var result = activeBoxes.Select(box => new
+            {
+                Id = box.Id,
+                Text = box.Text,
+                CreatedAt = box.CreatedAt,
+                Age = DateTime.Now - box.CreatedAt
+            }).ToList();
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Count = result.Count,
+                    MessageBoxes = result
+                },
+                StatusCode = 200,
+                Type = "MessageBoxList"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/messagebox/close/{id}")]
+    public ApiResponse CloseMessageBox(Guid id)
+    {
+        try
+        {
+            bool continueSequence = true;
+
+            // Check if request has body with continue parameter
+            try
+            {
+                var requestData = HttpContext.GetRequestDataAsync<Dictionary<string, object>>().Result;
+                if (requestData != null && requestData.ContainsKey("continue"))
+                {
+                    if (bool.TryParse(requestData["continue"].ToString(), out bool shouldContinue))
+                    {
+                        continueSequence = shouldContinue;
+                    }
+                }
+            }
+            catch
+            {
+                // Use default if parsing fails
+            }
+
+            bool closed = MessageBoxRegistry.Close(id, continueSequence);
+
+            if (closed)
+            {
+                Logger.Info($"MessageBox {id} closed via API - Continue: {continueSequence}");
+                return new ApiResponse
+                {
+                    Success = true,
+                    Response = new
+                    {
+                        Message = $"MessageBox {id} closed",
+                        ContinueSequence = continueSequence
+                    },
+                    StatusCode = 200,
+                    Type = "MessageBoxClosed"
+                };
+            }
+            else
+            {
+                HttpContext.Response.StatusCode = 404;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = $"MessageBox with ID {id} not found",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/messagebox/close-all")]
+    public ApiResponse CloseAllMessageBoxes()
+    {
+        try
+        {
+            bool continueSequence = true;
+
+            // Check if request has body with continue parameter
+            try
+            {
+                var requestData = HttpContext.GetRequestDataAsync<Dictionary<string, object>>().Result;
+                if (requestData != null && requestData.ContainsKey("continue"))
+                {
+                    if (bool.TryParse(requestData["continue"].ToString(), out bool shouldContinue))
+                    {
+                        continueSequence = shouldContinue;
+                    }
+                }
+            }
+            catch
+            {
+                // Use default if parsing fails
+            }
+
+            int count = MessageBoxRegistry.CloseAll(continueSequence);
+
+            Logger.Info($"Closed {count} MessageBoxes via API - Continue: {continueSequence}");
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Message = $"Closed {count} message box(es)",
+                    Count = count,
+                    ContinueSequence = continueSequence
+                },
+                StatusCode = 200,
+                Type = "MessageBoxesClosed"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/messagebox/info/{id}")]
+    public ApiResponse GetMessageBoxInfo(Guid id)
+    {
+        try
+        {
+            var box = MessageBoxRegistry.Get(id);
+
+            if (box != null)
+            {
+                return new ApiResponse
+                {
+                    Success = true,
+                    Response = new
+                    {
+                        Id = box.Id,
+                        Text = box.Text,
+                        CreatedAt = box.CreatedAt,
+                        Age = DateTime.Now - box.CreatedAt,
+                        IsActive = MessageBoxRegistry.IsActive(id)
+                    },
+                    StatusCode = 200,
+                    Type = "MessageBoxInfo"
+                };
+            }
+            else
+            {
+                HttpContext.Response.StatusCode = 404;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = $"MessageBox with ID {id} not found",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/messagebox/count")]
+    public ApiResponse GetMessageBoxCount()
+    {
+        try
+        {
+            int count = MessageBoxRegistry.Count;
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Count = count,
+                    HasActive = count > 0
+                },
+                StatusCode = 200,
+                Type = "MessageBoxCount"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
     }
 }

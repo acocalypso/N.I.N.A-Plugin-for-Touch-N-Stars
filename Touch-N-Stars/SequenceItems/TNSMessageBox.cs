@@ -1,0 +1,164 @@
+using Newtonsoft.Json;
+using NINA.Core.Locale;
+using NINA.Core.Model;
+using NINA.Core.MyMessageBox;
+using NINA.Core.Utility;
+using NINA.Core.Utility.WindowService;
+using NINA.Sequencer.Interfaces.Mediator;
+using NINA.Sequencer.SequenceItem;
+using NINA.Sequencer.Utility;
+using System;
+using System.ComponentModel.Composition;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Input;
+
+namespace TouchNStars.SequenceItems {
+
+    [ExportMetadata("Name", "TNS Message Box")]
+    [ExportMetadata("Description", "Display a message box that can be closed remotely via TNS API")]
+    [ExportMetadata("Icon", "MessageBoxSVG")]
+    [ExportMetadata("Category", "Touch 'N' Stars")]
+    [Export(typeof(ISequenceItem))]
+    [JsonObject(MemberSerialization.OptIn)]
+    public class TNSMessageBox : SequenceItem {
+        private IWindowServiceFactory windowServiceFactory;
+        private Guid? currentMessageBoxId;
+
+        [ImportingConstructor]
+        public TNSMessageBox(IWindowServiceFactory windowServiceFactory) {
+            this.windowServiceFactory = windowServiceFactory;
+        }
+
+        private TNSMessageBox(TNSMessageBox cloneMe) : this(cloneMe.windowServiceFactory) {
+            CopyMetaData(cloneMe);
+        }
+
+        public override object Clone() {
+            return new TNSMessageBox(this) {
+                Text = Text,
+                CloseOnTimeout = CloseOnTimeout,
+                TimeoutSeconds = TimeoutSeconds,
+                ContinueOnTimeout = ContinueOnTimeout
+            };
+        }
+
+        [JsonProperty]
+        public string Text { get; set; } = "Message from Touch 'N' Stars Sequence";
+
+        [JsonProperty]
+        public bool CloseOnTimeout { get; set; } = false;
+
+        [JsonProperty]
+        public int TimeoutSeconds { get; set; } = 60;
+
+        [JsonProperty]
+        public bool ContinueOnTimeout { get; set; } = true;
+
+        public override async Task Execute(IProgress<ApplicationStatus> progress, CancellationToken token) {
+            var service = windowServiceFactory.Create();
+            var msgBoxResult = new TNSMessageBoxResult(Text);
+            currentMessageBoxId = Guid.NewGuid();
+
+            bool closedByApi = false;
+            bool closedByTimeout = false;
+
+            try {
+                // Register this message box in the global registry
+                var registrationId = MessageBoxRegistry.Register(
+                    Text,
+                    service,
+                    () => {
+                        closedByApi = true;
+                        service?.Close();
+                    }
+                );
+
+                currentMessageBoxId = registrationId;
+
+                Logger.Info($"TNS MessageBox displayed with ID: {registrationId}");
+
+                // Create timeout cancellation source if enabled
+                CancellationTokenSource timeoutCts = null;
+                CancellationTokenSource linkedCts = null;
+
+                if (CloseOnTimeout && TimeoutSeconds > 0) {
+                    timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
+                    linkedCts = CancellationTokenSource.CreateLinkedTokenSource(token, timeoutCts.Token);
+                }
+
+                var effectiveToken = linkedCts?.Token ?? token;
+
+                // Register cancellation handlers
+                using (effectiveToken.Register(() => {
+                    if (timeoutCts?.IsCancellationRequested == true) {
+                        closedByTimeout = true;
+                        msgBoxResult.Continue = ContinueOnTimeout;
+                        Logger.Info($"TNS MessageBox timeout after {TimeoutSeconds} seconds");
+                    }
+                    service?.Close();
+                })) {
+                    await service.ShowDialog(msgBoxResult, "Touch 'N' Stars Message");
+                }
+
+                // Check if closed by API
+                if (closedByApi) {
+                    var registration = MessageBoxRegistry.Get(registrationId);
+                    if (registration != null) {
+                        msgBoxResult.Continue = registration.ContinueOnClose;
+                        Logger.Info($"TNS MessageBox closed by API - Continue: {msgBoxResult.Continue}");
+                    }
+                }
+
+                timeoutCts?.Dispose();
+                linkedCts?.Dispose();
+
+            } finally {
+                // Always unregister when done
+                if (currentMessageBoxId.HasValue) {
+                    MessageBoxRegistry.Unregister(currentMessageBoxId.Value);
+                    currentMessageBoxId = null;
+                }
+            }
+
+            token.ThrowIfCancellationRequested();
+
+            // Handle the result
+            if (!msgBoxResult.Continue && !closedByTimeout) {
+                Logger.Info("TNS MessageBox: User cancelled - Stopping Sequence");
+                var root = ItemUtility.GetRootContainer(this.Parent);
+                root?.Interrupt();
+            } else if (closedByTimeout && !ContinueOnTimeout) {
+                Logger.Info("TNS MessageBox: Timeout - Stopping Sequence");
+                var root = ItemUtility.GetRootContainer(this.Parent);
+                root?.Interrupt();
+            } else if (closedByApi) {
+                var registration = MessageBoxRegistry.Get(currentMessageBoxId ?? Guid.Empty);
+                if (registration != null && !registration.ContinueOnClose) {
+                    Logger.Info("TNS MessageBox: API closed with stop - Stopping Sequence");
+                    var root = ItemUtility.GetRootContainer(this.Parent);
+                    root?.Interrupt();
+                }
+            }
+        }
+
+        public override string ToString() {
+            return $"Category: {Category}, Item: TNS MessageBox, Text: {Text}";
+        }
+    }
+
+    public class TNSMessageBoxResult {
+        public TNSMessageBoxResult(string message) {
+            this.Message = message;
+            Continue = true;
+            ContinueCommand = new RelayCommand((object o) => Continue = true);
+            CancelCommand = new RelayCommand((object o) => Continue = false);
+        }
+
+        public string Message { get; }
+        public bool Continue { get; set; }
+
+        public ICommand ContinueCommand { get; }
+        public ICommand CancelCommand { get; }
+    }
+}
