@@ -29,7 +29,6 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!--  Message Text  -->
@@ -48,88 +47,54 @@
 
             <!--  Timeout Settings  -->
             <GroupBox Grid.Row="1" Header="Timeout Settings (Optional)">
-                <StackPanel Margin="5" Orientation="Vertical">
-                    <!-- Enable Timeout -->
+                <StackPanel Margin="5" Orientation="Horizontal">
+                    <!-- Enable Timeout Checkbox -->
                     <CheckBox
-                        Margin="0,5,0,10"
-                        Content="Enable Auto-Close after timeout"
+                        Margin="0,0,15,0"
+                        VerticalAlignment="Center"
                         IsChecked="{Binding CloseOnTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                    <!-- Timeout Duration and Action -->
-                    <StackPanel
-                        Margin="20,0,0,5"
+                    <!-- Timeout Duration -->
+                    <TextBlock
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
                         IsEnabled="{Binding CloseOnTimeout}"
-                        Orientation="Horizontal">
-                        <TextBlock
-                            Margin="0,0,10,0"
-                            VerticalAlignment="Center"
-                            Text="Close after:" />
-                        <ninactrl:IntStepperControl
-                            MinWidth="100"
-                            MaxValue="3600"
-                            MinValue="1"
-                            StepSize="5"
-                            Value="{Binding TimeoutSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        <TextBlock
-                            Margin="5,0,0,0"
-                            VerticalAlignment="Center"
-                            Text="seconds" />
-                    </StackPanel>
+                        Text="Auto-close after" />
+                    <ninactrl:IntStepperControl
+                        MinWidth="80"
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding CloseOnTimeout}"
+                        MaxValue="3600"
+                        MinValue="1"
+                        StepSize="5"
+                        Value="{Binding TimeoutSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Margin="0,0,20,0"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding CloseOnTimeout}"
+                        Text="seconds, then" />
 
-                    <!-- What to do on timeout -->
-                    <Grid
-                        Margin="20,5,0,5"
-                        IsEnabled="{Binding CloseOnTimeout}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock
-                            Grid.Column="0"
-                            Margin="0,0,10,0"
-                            VerticalAlignment="Center"
-                            Text="On timeout:" />
-
-                        <CheckBox
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            IsChecked="{Binding ContinueOnTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                        <StackPanel
-                            Grid.Column="2"
-                            Margin="10,0,0,0"
-                            VerticalAlignment="Center"
-                            Orientation="Horizontal">
-                            <TextBlock
-                                VerticalAlignment="Center"
-                                Text="Continue sequence" />
-                            <TextBlock
-                                Margin="5,0,0,0"
-                                VerticalAlignment="Center"
-                                FontSize="11"
-                                Foreground="{StaticResource ButtonForegroundDisabledBrush}"
-                                Text="(OFF = stop)" />
-                        </StackPanel>
-                    </Grid>
+                    <!-- Continue/Stop Toggle -->
+                    <CheckBox
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding CloseOnTimeout}"
+                        IsChecked="{Binding ContinueOnTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Margin="0,0,5,0"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding CloseOnTimeout}"
+                        Text="Continue" />
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Foreground="{StaticResource ButtonForegroundDisabledBrush}"
+                        IsEnabled="{Binding CloseOnTimeout}"
+                        Text="(OFF=stop)" />
                 </StackPanel>
             </GroupBox>
 
-            <!--  Info  -->
-            <GroupBox Grid.Row="2" Header="Remote Control">
-                <StackPanel Margin="5" Orientation="Vertical">
-                    <TextBlock TextWrapping="Wrap">
-                        This message box can be closed remotely via the Touch 'N' Stars API.
-                    </TextBlock>
-                    <TextBlock Margin="0,5,0,0" TextWrapping="Wrap">
-                        API Endpoint: POST /messagebox/close/{id}
-                    </TextBlock>
-                    <TextBlock Margin="0,5,0,0" TextWrapping="Wrap">
-                        List active boxes: GET /messagebox/list
-                    </TextBlock>
-                </StackPanel>
-            </GroupBox>
         </Grid>
             </view:SequenceBlockView.SequenceItemContent>
         </view:SequenceBlockView>
