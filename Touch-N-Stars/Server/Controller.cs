@@ -3024,4 +3024,54 @@ public class Controller : WebApiController {
             };
         }
     }
+
+    [Route(HttpVerbs.Post, "/dialogs/click-messagebox-button")]
+    public ApiResponse ClickMessageBoxButton()
+    {
+        try
+        {
+            string buttonType = HttpContext.Request.QueryString["button"];
+
+            if (string.IsNullOrEmpty(buttonType))
+            {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "Missing 'button' query parameter. Valid values: Yes, No, OK, Cancel",
+                    StatusCode = 400,
+                    Type = "BadRequest"
+                };
+            }
+
+            int count = DialogManager.ClickMessageBoxButton(buttonType);
+
+            Logger.Info($"Clicked '{buttonType}' button on {count} MessageBox(es) via API");
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Message = $"Clicked '{buttonType}' button on {count} MessageBox(es)",
+                    Count = count,
+                    Button = buttonType
+                },
+                StatusCode = 200,
+                Type = "ButtonClicked"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
 }
