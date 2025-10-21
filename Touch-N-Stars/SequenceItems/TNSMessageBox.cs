@@ -46,7 +46,7 @@ namespace TouchNStars.SequenceItems {
                         Application.Current?.Resources.MergedDictionaries.Add(resultTemplate);
 
                         templatesLoaded = true;
-                        Logger.Info("TNSMessageBox templates loaded successfully");
+                        Logger.Debug("TNSMessageBox templates loaded successfully");
                     } catch (Exception ex) {
                         Logger.Error($"Failed to load TNSMessageBox templates: {ex}");
                     }
