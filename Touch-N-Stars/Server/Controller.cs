@@ -2790,4 +2790,238 @@ public class Controller : WebApiController {
             };
         }
     }
+
+    // NINA Dialog Control Endpoints (for native NINA dialogs)
+
+    [Route(HttpVerbs.Get, "/dialogs/list")]
+    public ApiResponse GetAllNinaDialogs()
+    {
+        try
+        {
+            var dialogs = DialogManager.GetAllDialogs();
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Count = dialogs.Count,
+                    Dialogs = dialogs
+                },
+                StatusCode = 200,
+                Type = "DialogList"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/dialogs/count")]
+    public ApiResponse GetNinaDialogCount()
+    {
+        try
+        {
+            int count = DialogManager.GetDialogCount();
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Count = count,
+                    HasActive = count > 0
+                },
+                StatusCode = 200,
+                Type = "DialogCount"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/dialogs/close-all")]
+    public ApiResponse CloseAllNinaDialogs()
+    {
+        try
+        {
+            bool confirmResult = true;
+
+            // Check for 'confirm' query parameter
+            if (HttpContext.Request.QueryString.AllKeys.Contains("confirm"))
+            {
+                bool.TryParse(HttpContext.Request.QueryString["confirm"], out confirmResult);
+            }
+
+            int count = DialogManager.CloseAllDialogs(confirmResult);
+
+            Logger.Info($"Closed {count} NINA dialog(s) via API - Confirm: {confirmResult}");
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Message = $"Closed {count} dialog(s)",
+                    Count = count,
+                    ConfirmResult = confirmResult
+                },
+                StatusCode = 200,
+                Type = "DialogsClosed"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/dialogs/close-by-type")]
+    public ApiResponse CloseNinaDialogsByType()
+    {
+        try
+        {
+            string typeName = HttpContext.Request.QueryString["type"];
+            bool confirmResult = true;
+
+            if (string.IsNullOrEmpty(typeName))
+            {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "Missing 'type' query parameter",
+                    StatusCode = 400,
+                    Type = "BadRequest"
+                };
+            }
+
+            // Check for 'confirm' query parameter
+            if (HttpContext.Request.QueryString.AllKeys.Contains("confirm"))
+            {
+                bool.TryParse(HttpContext.Request.QueryString["confirm"], out confirmResult);
+            }
+
+            int count = DialogManager.CloseDialogsByType(typeName, confirmResult);
+
+            Logger.Info($"Closed {count} NINA dialog(s) of type '{typeName}' via API - Confirm: {confirmResult}");
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Message = $"Closed {count} dialog(s) of type '{typeName}'",
+                    Count = count,
+                    Type = typeName,
+                    ConfirmResult = confirmResult
+                },
+                StatusCode = 200,
+                Type = "DialogsClosed"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/dialogs/execute-command")]
+    public ApiResponse ExecuteDialogCommand()
+    {
+        try
+        {
+            string typeName = HttpContext.Request.QueryString["type"];
+            string commandName = HttpContext.Request.QueryString["command"];
+
+            if (string.IsNullOrEmpty(typeName))
+            {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "Missing 'type' query parameter",
+                    StatusCode = 400,
+                    Type = "BadRequest"
+                };
+            }
+
+            if (string.IsNullOrEmpty(commandName))
+            {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "Missing 'command' query parameter",
+                    StatusCode = 400,
+                    Type = "BadRequest"
+                };
+            }
+
+            int count = DialogManager.ExecuteDialogCommand(typeName, commandName);
+
+            Logger.Info($"Executed command '{commandName}' on {count} dialog(s) of type '{typeName}' via API");
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Message = $"Executed command '{commandName}' on {count} dialog(s)",
+                    Count = count,
+                    Type = typeName,
+                    Command = commandName
+                },
+                StatusCode = 200,
+                Type = "CommandExecuted"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
 }
