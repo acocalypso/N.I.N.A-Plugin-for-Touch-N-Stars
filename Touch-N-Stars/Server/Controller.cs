@@ -3074,4 +3074,114 @@ public class Controller : WebApiController {
             };
         }
     }
+
+    [Route(HttpVerbs.Get, "/dialogs/debug")]
+    public ApiResponse GetDetailedDialogDebugInfo()
+    {
+        try
+        {
+            var detailedInfo = DialogManager.GetDetailedWindowInfo();
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    Count = detailedInfo.Count,
+                    Windows = detailedInfo
+                },
+                StatusCode = 200,
+                Type = "DebugInfo"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/dialogs/click-window-button")]
+    public ApiResponse ClickWindowButton()
+    {
+        try
+        {
+            string windowTitle = HttpContext.Request.QueryString["window"];
+            string buttonText = HttpContext.Request.QueryString["button"];
+
+            if (string.IsNullOrEmpty(windowTitle))
+            {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "Missing 'window' query parameter (window title or partial title)",
+                    StatusCode = 400,
+                    Type = "BadRequest"
+                };
+            }
+
+            if (string.IsNullOrEmpty(buttonText))
+            {
+                HttpContext.Response.StatusCode = 400;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "Missing 'button' query parameter (button name or content text)",
+                    StatusCode = 400,
+                    Type = "BadRequest"
+                };
+            }
+
+            bool clicked = DialogManager.ClickWindowButton(windowTitle, buttonText);
+
+            if (clicked)
+            {
+                Logger.Info($"Clicked button '{buttonText}' in window '{windowTitle}' via API");
+
+                return new ApiResponse
+                {
+                    Success = true,
+                    Response = new
+                    {
+                        Message = $"Successfully clicked button '{buttonText}' in window '{windowTitle}'",
+                        Window = windowTitle,
+                        Button = buttonText
+                    },
+                    StatusCode = 200,
+                    Type = "ButtonClicked"
+                };
+            }
+            else
+            {
+                HttpContext.Response.StatusCode = 404;
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = $"Button '{buttonText}' not found in window '{windowTitle}'",
+                    StatusCode = 404,
+                    Type = "NotFound"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
 }

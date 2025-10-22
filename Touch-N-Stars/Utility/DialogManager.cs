@@ -81,6 +81,19 @@ namespace TouchNStars.Utility {
 
                             // Determine sub-category based on content (for MessageBoxes)
                             info.SubCategory = DetermineMessageBoxSubCategory(info.Content, info.Title);
+                        } else {
+                            // No DataContext - try to categorize from window type and title
+                            info.Category = DetermineDialogCategory(window.GetType().FullName);
+                            info.SubCategory = DetermineWindowSubCategory(info.Title);
+
+                            // Try to extract button information from the window content
+                            Logger.Debug($"DialogManager: Window '{info.Title}' has no DataContext, attempting to extract buttons and text...");
+                            info.AvailableCommands = ExtractButtonsFromWindow(window);
+                            Logger.Debug($"DialogManager: Extracted {info.AvailableCommands.Count} buttons from window '{info.Title}'");
+
+                            // Extract text content from the window
+                            info.Content = ExtractTextContentFromWindow(window);
+                            Logger.Debug($"DialogManager: Extracted {info.Content.Count} text elements from window '{info.Title}'");
                         }
 
                         dialogs.Add(info);
@@ -278,6 +291,103 @@ namespace TouchNStars.Utility {
         }
 
         /// <summary>
+        /// Click a button in a window by button name or content
+        /// </summary>
+        /// <param name="windowTitle">Title of the window containing the button</param>
+        /// <param name="buttonIdentifier">Button name or content text</param>
+        /// <returns>True if button was clicked</returns>
+        public static bool ClickWindowButton(string windowTitle, string buttonIdentifier) {
+            bool clicked = false;
+
+            try {
+                Application.Current?.Dispatcher.Invoke(() => {
+                    foreach (Window window in Application.Current.Windows) {
+                        if (window == Application.Current.MainWindow) {
+                            continue;
+                        }
+
+                        if (window.Title?.Contains(windowTitle) == true) {
+                            Logger.Debug($"DialogManager: Searching for button '{buttonIdentifier}' in window '{window.Title}'");
+                            // Search the entire window's visual tree, not just window.Content
+                            clicked = TryClickButton(window, buttonIdentifier);
+                            if (clicked) {
+                                Logger.Info($"DialogManager: Clicked button '{buttonIdentifier}' in window '{windowTitle}'");
+                                return;
+                            } else {
+                                Logger.Debug($"DialogManager: Button '{buttonIdentifier}' not found in window '{window.Title}'");
+                            }
+                        }
+                    }
+                });
+            } catch (Exception ex) {
+                Logger.Error($"DialogManager: Error clicking window button: {ex}");
+            }
+
+            return clicked;
+        }
+
+        /// <summary>
+        /// Recursively search for and click a button
+        /// </summary>
+        private static bool TryClickButton(System.Windows.DependencyObject obj, string buttonIdentifier) {
+            if (obj == null) return false;
+
+            // Check if it's a button
+            if (obj is System.Windows.Controls.Button button) {
+                var buttonName = button.Name;
+                var buttonText = GetButtonText(button);  // Use GetButtonText instead of ToString()
+
+                Logger.Debug($"DialogManager: Checking button - Name: '{buttonName}', Text: '{buttonText}'");
+
+                // Skip PART_ buttons (internal WPF buttons) unless specifically requested
+                bool isPart = buttonName?.StartsWith("PART_") == true;
+                bool nameMatches = !string.IsNullOrEmpty(buttonName) && buttonName.Contains(buttonIdentifier, StringComparison.OrdinalIgnoreCase);
+                bool textMatches = !string.IsNullOrEmpty(buttonText) && buttonText.Contains(buttonIdentifier, StringComparison.OrdinalIgnoreCase);
+
+                if (nameMatches || textMatches) {
+                    // Skip PART_ buttons unless the identifier explicitly targets them
+                    if (isPart && !buttonIdentifier.StartsWith("PART_")) {
+                        Logger.Debug($"DialogManager: Skipping PART_ button '{buttonName}'");
+                    } else {
+                        try {
+                            Logger.Debug($"DialogManager: Attempting to click button - Name: '{buttonName}', Text: '{buttonText}'");
+
+                            // Raise click event
+                            var clickMethod = button.GetType().GetMethod("OnClick",
+                                BindingFlags.Instance | BindingFlags.NonPublic);
+                            if (clickMethod != null) {
+                                clickMethod.Invoke(button, null);
+                                return true;
+                            }
+
+                            // Alternative: raise RoutedEvent
+                            button.RaiseEvent(new System.Windows.RoutedEventArgs(
+                                System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                            return true;
+                        } catch (Exception ex) {
+                            Logger.Error($"DialogManager: Error invoking button click: {ex}");
+                        }
+                    }
+                }
+            }
+
+            // Search children
+            try {
+                var childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(obj);
+                for (int i = 0; i < childCount; i++) {
+                    var child = System.Windows.Media.VisualTreeHelper.GetChild(obj, i);
+                    if (TryClickButton(child, buttonIdentifier)) {
+                        return true;
+                    }
+                }
+            } catch {
+                // Some objects don't support GetChildrenCount
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Click a specific button on NINA MessageBoxes by type (Yes/No/OK/Cancel)
         /// </summary>
         /// <param name="buttonType">"Yes", "No", "OK", or "Cancel"</param>
@@ -397,6 +507,10 @@ namespace TouchNStars.Utility {
                         // Only include simple, serializable types
                         if (value != null && IsSerializableType(value)) {
                             content[prop.Name] = value;
+                        }
+                        // Also include Visibility enum values (for button visibility)
+                        else if (value != null && prop.PropertyType.Name == "Visibility") {
+                            content[prop.Name] = value.ToString();
                         }
                     } catch {
                         // Skip properties that throw exceptions when accessed
@@ -637,6 +751,342 @@ namespace TouchNStars.Utility {
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Determine sub-category for windows without DataContext based on title
+        /// </summary>
+        private static string DetermineWindowSubCategory(string title) {
+            if (string.IsNullOrEmpty(title)) {
+                return null;
+            }
+
+            var titleLower = title.ToLowerInvariant();
+
+            // Sequence/Sequenzer dialogs
+            if (titleLower.Contains("sequenz") || titleLower.Contains("sequence")) {
+                return "SequenceMessage";
+            }
+
+            // Equipment messages
+            if (titleLower.Contains("filter")) {
+                return "FilterWheelMessage";
+            }
+            if (titleLower.Contains("camera") || titleLower.Contains("kamera")) {
+                return "CameraMessage";
+            }
+            if (titleLower.Contains("mount") || titleLower.Contains("teleskop")) {
+                return "MountMessage";
+            }
+
+            // Generic notification
+            if (titleLower.Contains("notification") || titleLower.Contains("benachrichtigung")) {
+                return "Notification";
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Extract button names from a window's visual tree
+        /// </summary>
+        private static List<string> ExtractButtonsFromWindow(Window window) {
+            var buttons = new List<string>();
+
+            try {
+                Logger.Debug($"DialogManager: Extracting buttons from window '{window.Title}'");
+                Logger.Debug($"DialogManager: Window.Content type: {window.Content?.GetType().Name}");
+
+                // Try to get the visual root (the window itself is a DependencyObject)
+                // Start from the window to traverse the entire visual tree
+                FindButtons(window, buttons);
+                Logger.Debug($"DialogManager: Found {buttons.Count} buttons");
+            } catch (Exception ex) {
+                Logger.Error($"DialogManager: Error extracting buttons: {ex}");
+            }
+
+            return buttons;
+        }
+
+        /// <summary>
+        /// Recursively find buttons in the visual tree
+        /// </summary>
+        private static void FindButtons(System.Windows.DependencyObject obj, List<string> buttons) {
+            if (obj == null) return;
+
+            // Check if it's a button
+            if (obj is System.Windows.Controls.Button button) {
+                var buttonName = button.Name;
+                var buttonText = GetButtonText(button);
+
+                Logger.Debug($"DialogManager: Found button - Name: '{buttonName}', Text: '{buttonText}'");
+
+                if (!string.IsNullOrEmpty(buttonName) && !buttonName.StartsWith("PART_")) {
+                    buttons.Add($"{buttonName}");
+                } else if (!string.IsNullOrEmpty(buttonText)) {
+                    buttons.Add($"{buttonText}");
+                } else if (!string.IsNullOrEmpty(buttonName)) {
+                    buttons.Add($"{buttonName}");
+                } else {
+                    buttons.Add("UnnamedButton");
+                }
+            }
+
+            // Search children
+            try {
+                var childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(obj);
+                for (int i = 0; i < childCount; i++) {
+                    var child = System.Windows.Media.VisualTreeHelper.GetChild(obj, i);
+                    FindButtons(child, buttons);
+                }
+            } catch {
+                // Some objects don't support GetChildrenCount
+            }
+        }
+
+        /// <summary>
+        /// Extract text content from a button's Content property
+        /// Handles various content types like string, TextBlock, or other WPF elements
+        /// </summary>
+        private static string GetButtonText(System.Windows.Controls.Button button) {
+            if (button == null || button.Content == null) {
+                return string.Empty;
+            }
+
+            try {
+                // Simple case: Content is a string
+                if (button.Content is string text) {
+                    return text;
+                }
+
+                // Content is a TextBlock
+                if (button.Content is System.Windows.Controls.TextBlock textBlock) {
+                    return textBlock.Text ?? string.Empty;
+                }
+
+                // Content is another text element
+                if (button.Content is System.Windows.Controls.TextBox textBox) {
+                    return textBox.Text ?? string.Empty;
+                }
+
+                if (button.Content is System.Windows.Controls.Label label) {
+                    return label.Content?.ToString() ?? string.Empty;
+                }
+
+                // Content might be a complex object - try to search its visual tree for TextBlock
+                if (button.Content is System.Windows.DependencyObject contentObj) {
+                    var foundText = ExtractTextFromVisualTree(contentObj);
+                    if (!string.IsNullOrEmpty(foundText)) {
+                        return foundText;
+                    }
+                }
+
+                // Fallback: ToString() on the content
+                return button.Content.ToString();
+            } catch (Exception ex) {
+                Logger.Debug($"DialogManager: Error extracting button text: {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Recursively search a visual tree for text content (TextBlock, Label, etc.)
+        /// </summary>
+        private static string ExtractTextFromVisualTree(System.Windows.DependencyObject obj) {
+            if (obj == null) return string.Empty;
+
+            // Check if current object has text
+            if (obj is System.Windows.Controls.TextBlock textBlock) {
+                return textBlock.Text ?? string.Empty;
+            }
+
+            if (obj is System.Windows.Controls.Label label) {
+                return label.Content?.ToString() ?? string.Empty;
+            }
+
+            if (obj is System.Windows.Controls.TextBox textBox) {
+                return textBox.Text ?? string.Empty;
+            }
+
+            // Search children
+            try {
+                var childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(obj);
+                for (int i = 0; i < childCount; i++) {
+                    var child = System.Windows.Media.VisualTreeHelper.GetChild(obj, i);
+                    var text = ExtractTextFromVisualTree(child);
+                    if (!string.IsNullOrEmpty(text)) {
+                        return text;
+                    }
+                }
+            } catch {
+                // Some objects don't support GetChildrenCount
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Extract text content from a window's visual tree (for windows without DataContext)
+        /// </summary>
+        private static Dictionary<string, object> ExtractTextContentFromWindow(Window window) {
+            var content = new Dictionary<string, object>();
+
+            try {
+                Logger.Debug($"DialogManager: Extracting text content from window '{window.Title}'");
+
+                var textElements = new List<string>();
+                FindTextElements(window, textElements);
+
+                // Filter out the window title from text elements
+                var windowTitle = window.Title ?? "";
+                var filteredElements = textElements
+                    .Where(text => !text.Equals(windowTitle, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                Logger.Debug($"DialogManager: Found {textElements.Count} text elements, {filteredElements.Count} after filtering title");
+
+                // Add all text elements (excluding title)
+                if (filteredElements.Count > 0) {
+                    // If there's only one significant text element, use it as "Message"
+                    if (filteredElements.Count == 1) {
+                        content["Message"] = filteredElements[0];
+                    } else {
+                        // Multiple text elements - add them individually
+                        for (int i = 0; i < filteredElements.Count; i++) {
+                            content[$"Text{i + 1}"] = filteredElements[i];
+                        }
+                        // Also combine them into a single message
+                        content["Message"] = string.Join(" ", filteredElements);
+                    }
+                }
+            } catch (Exception ex) {
+                Logger.Error($"DialogManager: Error extracting text content: {ex}");
+            }
+
+            return content;
+        }
+
+        /// <summary>
+        /// Recursively find text elements (TextBlock, Label) in the visual tree
+        /// </summary>
+        private static void FindTextElements(System.Windows.DependencyObject obj, List<string> textElements) {
+            if (obj == null) return;
+
+            // Skip buttons - we don't want button text in the message
+            if (obj is System.Windows.Controls.Button) {
+                return;
+            }
+
+            // Check if it's a text element
+            if (obj is System.Windows.Controls.TextBlock textBlock) {
+                var text = textBlock.Text;
+                if (!string.IsNullOrWhiteSpace(text)) {
+                    Logger.Debug($"DialogManager: Found TextBlock with text: '{text}'");
+                    textElements.Add(text);
+                }
+            } else if (obj is System.Windows.Controls.Label label) {
+                var text = label.Content?.ToString();
+                if (!string.IsNullOrWhiteSpace(text)) {
+                    Logger.Debug($"DialogManager: Found Label with text: '{text}'");
+                    textElements.Add(text);
+                }
+            } else if (obj is System.Windows.Controls.TextBox textBox) {
+                var text = textBox.Text;
+                if (!string.IsNullOrWhiteSpace(text)) {
+                    Logger.Debug($"DialogManager: Found TextBox with text: '{text}'");
+                    textElements.Add(text);
+                }
+            }
+
+            // Search children
+            try {
+                var childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(obj);
+                for (int i = 0; i < childCount; i++) {
+                    var child = System.Windows.Media.VisualTreeHelper.GetChild(obj, i);
+                    FindTextElements(child, textElements);
+                }
+            } catch {
+                // Some objects don't support GetChildrenCount
+            }
+        }
+
+        /// <summary>
+        /// Get detailed debug information about all windows and their properties
+        /// </summary>
+        public static List<Dictionary<string, object>> GetDetailedWindowInfo() {
+            var windowInfoList = new List<Dictionary<string, object>>();
+
+            try {
+                Application.Current?.Dispatcher.Invoke(() => {
+                    foreach (Window window in Application.Current.Windows) {
+                        var windowInfo = new Dictionary<string, object>();
+
+                        try {
+                            // Basic Window properties
+                            windowInfo["WindowType"] = window.GetType().FullName;
+                            windowInfo["WindowTypeName"] = window.GetType().Name;
+                            windowInfo["Title"] = window.Title ?? "";
+                            windowInfo["IsMainWindow"] = window == Application.Current.MainWindow;
+                            windowInfo["IsCustomWindow"] = window is CustomWindow;
+                            windowInfo["WindowState"] = window.WindowState.ToString();
+                            windowInfo["IsActive"] = window.IsActive;
+                            windowInfo["IsLoaded"] = window.IsLoaded;
+                            windowInfo["IsVisible"] = window.IsVisible;
+
+                            // DataContext information
+                            if (window.DataContext != null) {
+                                var dcType = window.DataContext.GetType();
+                                windowInfo["DataContextType"] = dcType.FullName;
+                                windowInfo["DataContextTypeName"] = dcType.Name;
+                                windowInfo["DataContextNamespace"] = dcType.Namespace;
+
+                                // All public properties of DataContext
+                                var dcProperties = new Dictionary<string, object>();
+                                foreach (var prop in dcType.GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
+                                    try {
+                                        var value = prop.GetValue(window.DataContext);
+                                        dcProperties[prop.Name] = new {
+                                            Type = prop.PropertyType.Name,
+                                            Value = value?.ToString() ?? "null",
+                                            CanRead = prop.CanRead,
+                                            CanWrite = prop.CanWrite
+                                        };
+                                    } catch (Exception ex) {
+                                        dcProperties[prop.Name] = $"Error: {ex.Message}";
+                                    }
+                                }
+                                windowInfo["DataContextProperties"] = dcProperties;
+                            } else {
+                                windowInfo["DataContextType"] = null;
+                            }
+
+                            // Window's own properties
+                            var windowProperties = new Dictionary<string, object>();
+                            foreach (var prop in window.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
+                                try {
+                                    // Skip complex properties that might cause issues
+                                    if (prop.PropertyType.IsValueType || prop.PropertyType == typeof(string)) {
+                                        var value = prop.GetValue(window);
+                                        windowProperties[prop.Name] = value?.ToString() ?? "null";
+                                    }
+                                } catch {
+                                    // Skip properties that throw exceptions
+                                }
+                            }
+                            windowInfo["WindowProperties"] = windowProperties;
+
+                        } catch (Exception ex) {
+                            windowInfo["Error"] = ex.Message;
+                        }
+
+                        windowInfoList.Add(windowInfo);
+                    }
+                });
+            } catch (Exception ex) {
+                Logger.Error($"DialogManager: Error getting detailed window info: {ex}");
+            }
+
+            return windowInfoList;
         }
     }
 }

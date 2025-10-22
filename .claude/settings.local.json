@@ -7,7 +7,8 @@
       "Bash(Select-String -Pattern \"error|Fehler|Erfolg|succeeded\")",
       "Read(//c/Users/astro/Documents/TNS/NINA/nina/NINA.Sequencer/SequenceItem/Utility/**)",
       "Read(//c/Users/astro/Documents/TNS/NINA/nina/**)",
-      "Read(//c/temp/**)"
+      "Read(//c/temp/**)",
+      "Bash(dotnet build:*)"
     ],
     "deny": [],
     "ask": []
