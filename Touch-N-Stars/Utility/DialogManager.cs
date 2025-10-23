@@ -76,7 +76,15 @@ namespace TouchNStars.Utility {
                             info.Content = ExtractDialogContent(window.DataContext);
                         } else {
                             // No DataContext - extract text from window directly
-                            info.Content = ExtractTextContentFromWindow(window);
+                            var rawContent = ExtractTextContentFromWindow(window);
+
+                            // Try to parse structured content based on ContentType
+                            var parsedContent = ParseStructuredContent(info.ContentType, rawContent);
+
+                            // Merge parsed content with raw content
+                            foreach (var kvp in parsedContent) {
+                                info.Content[kvp.Key] = kvp.Value;
+                            }
                         }
 
                         // Always extract buttons from visual tree (works for all dialogs)
@@ -781,6 +789,158 @@ namespace TouchNStars.Utility {
             } catch {
                 // Some objects don't support GetChildrenCount
             }
+        }
+
+        /// <summary>
+        /// Parse structured content based on ContentType
+        /// Converts raw text extraction into meaningful structured data
+        /// </summary>
+        private static Dictionary<string, object> ParseStructuredContent(string contentType, Dictionary<string, object> rawContent) {
+            if (string.IsNullOrEmpty(contentType) || rawContent == null || rawContent.Count == 0) {
+                return rawContent ?? new Dictionary<string, object>();
+            }
+
+            try {
+                // PlateSolving Status Dialog
+                if (contentType.Contains("PlateSolvingStatusVM")) {
+                    return ParsePlateSolvingStatus(rawContent);
+                }
+
+                // Sequencer MessageBox Result
+                if (contentType.Contains("MessageBoxResult")) {
+                    return ParseSequencerMessageBox(rawContent);
+                }
+
+                // Add more parsers here as needed
+                // if (contentType.Contains("SomeOtherType")) { return ParseSomeOtherType(rawContent); }
+
+            } catch (Exception ex) {
+                Logger.Error($"DialogManager: Error parsing structured content for {contentType}: {ex}");
+            }
+
+            // Fallback: return raw content
+            return rawContent;
+        }
+
+        /// <summary>
+        /// Parse PlateSolving status dialog into structured format
+        /// </summary>
+        private static Dictionary<string, object> ParsePlateSolvingStatus(Dictionary<string, object> rawContent) {
+            var structured = new Dictionary<string, object> {
+                ["Type"] = "PlateSolvingStatus"
+            };
+
+            // Extract all text elements in order
+            var allTexts = new List<string>();
+            for (int i = 1; i <= rawContent.Count; i++) {
+                if (rawContent.TryGetValue($"Text{i}", out var text)) {
+                    allTexts.Add(text?.ToString() ?? "");
+                }
+            }
+
+            if (allTexts.Count == 0) {
+                return rawContent;
+            }
+
+            Logger.Debug($"DialogManager: Parsing PlateSolving with {allTexts.Count} text elements");
+
+            // Find "Time" which marks the start of the table
+            var timeIdx = allTexts.IndexOf("Time");
+
+            if (timeIdx < 0) {
+                // No table found, return raw
+                return structured;
+            }
+
+            // Parse parameters (everything before "Time" or status messages)
+            var parameters = new Dictionary<string, object>();
+            for (int i = 0; i < timeIdx - 1; i += 2) {
+                if (i + 1 >= timeIdx) break;
+
+                var key = allTexts[i];
+                var value = allTexts[i + 1];
+
+                // Skip status messages
+                if (key.Contains("Exposing") || key.Contains("tolerance") || key.Contains("slewing")) {
+                    continue;
+                }
+
+                var cleanKey = key.Replace(" ", "").Replace("(", "").Replace(")", "");
+                parameters[cleanKey] = value;
+            }
+
+            structured["Parameters"] = parameters;
+
+            // Extract table headers (from "Time" until first data row)
+            var headers = new List<string>();
+            int headerIdx = timeIdx;
+
+            while (headerIdx < allTexts.Count) {
+                var text = allTexts[headerIdx];
+                // Check if this is a time value (first data cell) - format: HH:MM:SS
+                if (text.Contains(":") && text.Split(':').Length == 3 && headerIdx > timeIdx) {
+                    break;
+                }
+                headers.Add(text);
+                headerIdx++;
+            }
+
+            Logger.Debug($"DialogManager: Found {headers.Count} table headers starting at index {timeIdx}");
+
+            // Extract all table rows
+            var tableRows = new List<Dictionary<string, object>>();
+            int dataIdx = headerIdx;
+
+            while (dataIdx < allTexts.Count) {
+                var row = new Dictionary<string, object>();
+
+                for (int i = 0; i < headers.Count && (dataIdx + i) < allTexts.Count; i++) {
+                    var header = headers[i].Replace(" ", "").Replace("(", "").Replace(")", "");
+                    row[header] = allTexts[dataIdx + i];
+                }
+
+                if (row.Count > 0) {
+                    tableRows.Add(row);
+                }
+
+                dataIdx += headers.Count;
+            }
+
+            Logger.Debug($"DialogManager: Extracted {tableRows.Count} table rows");
+
+            if (tableRows.Count > 0) {
+                structured["Table"] = tableRows;
+                structured["LatestResult"] = tableRows[0]; // First row is most recent
+            }
+
+            // Extract status message
+            var statusMsg = allTexts.FirstOrDefault(t =>
+                t.Contains("tolerance") ||
+                t.Contains("target") ||
+                t.Contains("slewing") ||
+                t.Contains("Exposing"));
+
+            if (!string.IsNullOrEmpty(statusMsg)) {
+                structured["StatusMessage"] = statusMsg;
+            }
+
+            return structured;
+        }
+
+        /// <summary>
+        /// Parse Sequencer MessageBox into structured format
+        /// </summary>
+        private static Dictionary<string, object> ParseSequencerMessageBox(Dictionary<string, object> rawContent) {
+            var structured = new Dictionary<string, object> {
+                ["Type"] = "SequencerMessage"
+            };
+
+            // Extract message text
+            if (rawContent.TryGetValue("Message", out var message)) {
+                structured["Message"] = message;
+            }
+
+            return structured;
         }
 
         /// <summary>
