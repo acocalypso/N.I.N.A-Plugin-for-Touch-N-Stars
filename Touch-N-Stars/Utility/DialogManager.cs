@@ -74,19 +74,14 @@ namespace TouchNStars.Utility {
 
                             // Extract content from DataContext properties
                             info.Content = ExtractDialogContent(window.DataContext);
-
-                            // Extract available commands
-                            info.AvailableCommands = ExtractCommands(window.DataContext);
                         } else {
-                            // No DataContext - extract from window directly
-                            Logger.Debug($"DialogManager: Window '{info.Title}' has no DataContext, attempting to extract buttons and text...");
-                            info.AvailableCommands = ExtractButtonsFromWindow(window);
-                            Logger.Debug($"DialogManager: Extracted {info.AvailableCommands.Count} buttons from window '{info.Title}'");
-
-                            // Extract text content from the window
+                            // No DataContext - extract text from window directly
                             info.Content = ExtractTextContentFromWindow(window);
-                            Logger.Debug($"DialogManager: Extracted {info.Content.Count} text elements from window '{info.Title}'");
                         }
+
+                        // Always extract buttons from visual tree (works for all dialogs)
+                        info.AvailableCommands = ExtractButtonsFromWindow(window);
+                        Logger.Debug($"DialogManager: Extracted {info.AvailableCommands.Count} buttons from window '{info.Title}'");
 
                         dialogs.Add(info);
                     }
@@ -517,40 +512,6 @@ namespace TouchNStars.Utility {
         }
 
         /// <summary>
-        /// Extract available ICommand properties from DataContext
-        /// </summary>
-        private static List<string> ExtractCommands(object dataContext) {
-            var commands = new List<string>();
-
-            if (dataContext == null) {
-                return commands;
-            }
-
-            try {
-                var type = dataContext.GetType();
-                var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
-                foreach (var prop in properties) {
-                    try {
-                        if (typeof(System.Windows.Input.ICommand).IsAssignableFrom(prop.PropertyType)) {
-                            var command = prop.GetValue(dataContext) as System.Windows.Input.ICommand;
-                            if (command != null && command.CanExecute(null)) {
-                                commands.Add(prop.Name);
-                            }
-                        }
-                    } catch {
-                        // Skip properties that throw exceptions
-                        continue;
-                    }
-                }
-            } catch (Exception ex) {
-                Logger.Error($"DialogManager: Error extracting commands: {ex}");
-            }
-
-            return commands;
-        }
-
-        /// <summary>
         /// Check if a value is of a simple, serializable type
         /// </summary>
         private static bool IsSerializableType(object value) {
@@ -612,10 +573,26 @@ namespace TouchNStars.Utility {
 
             // Check if it's a button
             if (obj is System.Windows.Controls.Button button) {
+                // Skip invisible buttons
+                if (button.Visibility != System.Windows.Visibility.Visible) {
+                    Logger.Debug($"DialogManager: Skipping invisible button - Name: '{button.Name}', Visibility: {button.Visibility}");
+                    // Continue searching children but don't add this button
+                    try {
+                        var childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(obj);
+                        for (int i = 0; i < childCount; i++) {
+                            var child = System.Windows.Media.VisualTreeHelper.GetChild(obj, i);
+                            FindButtons(child, buttons);
+                        }
+                    } catch {
+                        // Some objects don't support GetChildrenCount
+                    }
+                    return;
+                }
+
                 var buttonName = button.Name;
                 var buttonText = GetButtonText(button);
 
-                Logger.Debug($"DialogManager: Found button - Name: '{buttonName}', Text: '{buttonText}'");
+                Logger.Debug($"DialogManager: Found visible button - Name: '{buttonName}', Text: '{buttonText}'");
 
                 if (!string.IsNullOrEmpty(buttonName) && !buttonName.StartsWith("PART_")) {
                     buttons.Add($"{buttonName}");
