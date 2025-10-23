@@ -17,10 +17,7 @@ namespace TouchNStars.Utility {
         /// </summary>
         public class DialogInfo {
             public string WindowType { get; set; }
-            public string DataContextType { get; set; }
-            public string DataContextTypeName { get; set; }  // Kurzer Name ohne Namespace
-            public string Category { get; set; }  // z.B. "Equipment", "Platesolving", "MessageBox"
-            public string SubCategory { get; set; }  // z.B. "FilterWheelChange" für spezifische MessageBox-Typen
+            public string ContentType { get; set; }  // Window.Content type (language-independent)
             public string Title { get; set; }
             public bool IsCustomWindow { get; set; }
             public bool HasDialogResult { get; set; }
@@ -61,12 +58,14 @@ namespace TouchNStars.Utility {
                             AvailableCommands = new List<string>()
                         };
 
-                        // Get DataContext type if available
+                        // Get ContentType (language-independent identifier)
+                        if (window.Content != null) {
+                            info.ContentType = window.Content.GetType().FullName;
+                        }
+
+                        // Get DataContext if available
                         if (window.DataContext != null) {
                             var dataContextType = window.DataContext.GetType();
-                            info.DataContextType = dataContextType.FullName;
-                            info.DataContextTypeName = dataContextType.Name;
-                            info.Category = DetermineDialogCategory(dataContextType.FullName);
 
                             // Check if DataContext has DialogResult property
                             var dialogResultProperty = dataContextType.GetProperty("DialogResult");
@@ -78,15 +77,8 @@ namespace TouchNStars.Utility {
 
                             // Extract available commands
                             info.AvailableCommands = ExtractCommands(window.DataContext);
-
-                            // Determine sub-category based on content (for MessageBoxes)
-                            info.SubCategory = DetermineMessageBoxSubCategory(info.Content, info.Title);
                         } else {
-                            // No DataContext - try to categorize from window type and title
-                            info.Category = DetermineDialogCategory(window.GetType().FullName);
-                            info.SubCategory = DetermineWindowSubCategory(info.Title);
-
-                            // Try to extract button information from the window content
+                            // No DataContext - extract from window directly
                             Logger.Debug($"DialogManager: Window '{info.Title}' has no DataContext, attempting to extract buttons and text...");
                             info.AvailableCommands = ExtractButtonsFromWindow(window);
                             Logger.Debug($"DialogManager: Extracted {info.AvailableCommands.Count} buttons from window '{info.Title}'");
@@ -589,203 +581,7 @@ namespace TouchNStars.Utility {
             return false;
         }
 
-        /// <summary>
-        /// Determine the category of a dialog based on its DataContext type
-        /// This provides a language-independent way to identify dialog types
-        /// </summary>
-        private static string DetermineDialogCategory(string dataContextTypeName) {
-            if (string.IsNullOrEmpty(dataContextTypeName)) {
-                return "Unknown";
-            }
 
-            var typeLower = dataContextTypeName.ToLowerInvariant();
-
-            // Equipment dialogs
-            if (typeLower.Contains("filterwheel") || typeLower.Contains("filter")) {
-                return "FilterWheel";
-            }
-            if (typeLower.Contains("camera")) {
-                return "Camera";
-            }
-            if (typeLower.Contains("telescope") || typeLower.Contains("mount")) {
-                return "Mount";
-            }
-            if (typeLower.Contains("focuser")) {
-                return "Focuser";
-            }
-            if (typeLower.Contains("rotator")) {
-                return "Rotator";
-            }
-            if (typeLower.Contains("dome")) {
-                return "Dome";
-            }
-            if (typeLower.Contains("flatdevice") || typeLower.Contains("flatpanel")) {
-                return "FlatDevice";
-            }
-            if (typeLower.Contains("guider") || typeLower.Contains("phd2")) {
-                return "Guider";
-            }
-            if (typeLower.Contains("switch")) {
-                return "Switch";
-            }
-            if (typeLower.Contains("safetymonitor")) {
-                return "SafetyMonitor";
-            }
-            if (typeLower.Contains("weather")) {
-                return "Weather";
-            }
-
-            // Imaging & Platesolving
-            if (typeLower.Contains("platesolv")) {
-                return "PlateSolving";
-            }
-            if (typeLower.Contains("framing")) {
-                return "Framing";
-            }
-            if (typeLower.Contains("autofocus")) {
-                return "AutoFocus";
-            }
-            if (typeLower.Contains("meridianflip")) {
-                return "MeridianFlip";
-            }
-            if (typeLower.Contains("dithering")) {
-                return "Dithering";
-            }
-
-            // Sequence & Control
-            if (typeLower.Contains("sequence")) {
-                return "Sequence";
-            }
-            if (typeLower.Contains("messagebox")) {
-                return "MessageBox";
-            }
-            if (typeLower.Contains("prompt")) {
-                return "Prompt";
-            }
-
-            // Settings & Configuration
-            if (typeLower.Contains("settings") || typeLower.Contains("options")) {
-                return "Settings";
-            }
-            if (typeLower.Contains("profile")) {
-                return "Profile";
-            }
-
-            // Updates & Notifications
-            if (typeLower.Contains("version") || typeLower.Contains("update")) {
-                return "Update";
-            }
-
-            // TouchNStars specific
-            if (typeLower.Contains("touchnstars") || typeLower.Contains("tns")) {
-                return "TouchNStars";
-            }
-
-            // Generic NINA dialogs
-            if (typeLower.Contains("nina")) {
-                return "NINA";
-            }
-
-            return "Other";
-        }
-
-        /// <summary>
-        /// Determine the specific type of MessageBox based on content analysis
-        /// This provides language-independent identification of MessageBox purpose
-        /// </summary>
-        private static string DetermineMessageBoxSubCategory(Dictionary<string, object> content, string title) {
-            if (content == null || content.Count == 0) {
-                return null;
-            }
-
-            // Get text content
-            string text = content.TryGetValue("Text", out var textValue) ? textValue?.ToString()?.ToLowerInvariant() : "";
-            string titleLower = title?.ToLowerInvariant() ?? "";
-
-            // Filter wheel change detection
-            // German: "Bitte zu Filter", "Filterwechsel"
-            // English: "Please change to filter", "Filter change required"
-            if ((text != null && (text.Contains("filter") && (text.Contains("wechsel") || text.Contains("change to filter")))) ||
-                (titleLower.Contains("filter") && (titleLower.Contains("wechsel") || titleLower.Contains("change required")))) {
-                return "FilterWheelChange";
-            }
-
-            // Equipment disconnect warnings
-            if (titleLower.Contains("disconnect") || titleLower.Contains("trennen")) {
-                return "EquipmentDisconnect";
-            }
-
-            // Meridian flip
-            if (titleLower.Contains("meridian") || text.Contains("meridian")) {
-                return "MeridianFlip";
-            }
-
-            // Autofocus
-            if (titleLower.Contains("focus") || text.Contains("focus") || text.Contains("fokus")) {
-                return "AutoFocus";
-            }
-
-            // Plate solving
-            if (titleLower.Contains("plate") || titleLower.Contains("solve") || text.Contains("plate") || text.Contains("solve")) {
-                return "PlateSolve";
-            }
-
-            // Sequence warnings/errors
-            if (titleLower.Contains("sequence") || titleLower.Contains("sequenz")) {
-                return "Sequence";
-            }
-
-            // File/Save operations
-            if (titleLower.Contains("save") || titleLower.Contains("speichern") || titleLower.Contains("file") || titleLower.Contains("datei")) {
-                return "FileSave";
-            }
-
-            // Confirmation dialogs
-            if (text.Contains("are you sure") || text.Contains("sind sie sicher") || text.Contains("confirm") || text.Contains("bestätigen")) {
-                return "Confirmation";
-            }
-
-            // Error messages
-            if (titleLower.Contains("error") || titleLower.Contains("fehler") || titleLower.Contains("warning") || titleLower.Contains("warnung")) {
-                return "Error";
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Determine sub-category for windows without DataContext based on title
-        /// </summary>
-        private static string DetermineWindowSubCategory(string title) {
-            if (string.IsNullOrEmpty(title)) {
-                return null;
-            }
-
-            var titleLower = title.ToLowerInvariant();
-
-            // Sequence/Sequenzer dialogs
-            if (titleLower.Contains("sequenz") || titleLower.Contains("sequence")) {
-                return "SequenceMessage";
-            }
-
-            // Equipment messages
-            if (titleLower.Contains("filter")) {
-                return "FilterWheelMessage";
-            }
-            if (titleLower.Contains("camera") || titleLower.Contains("kamera")) {
-                return "CameraMessage";
-            }
-            if (titleLower.Contains("mount") || titleLower.Contains("teleskop")) {
-                return "MountMessage";
-            }
-
-            // Generic notification
-            if (titleLower.Contains("notification") || titleLower.Contains("benachrichtigung")) {
-                return "Notification";
-            }
-
-            return null;
-        }
 
         /// <summary>
         /// Extract button names from a window's visual tree
@@ -1032,6 +828,16 @@ namespace TouchNStars.Utility {
                             windowInfo["IsActive"] = window.IsActive;
                             windowInfo["IsLoaded"] = window.IsLoaded;
                             windowInfo["IsVisible"] = window.IsVisible;
+
+                            // Window Content information (important for identifying dialogs!)
+                            if (window.Content != null) {
+                                var contentType = window.Content.GetType();
+                                windowInfo["ContentType"] = contentType.FullName;
+                                windowInfo["ContentTypeName"] = contentType.Name;
+                                windowInfo["ContentNamespace"] = contentType.Namespace;
+                            } else {
+                                windowInfo["ContentType"] = null;
+                            }
 
                             // DataContext information
                             if (window.DataContext != null) {
