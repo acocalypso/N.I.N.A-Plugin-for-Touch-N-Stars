@@ -630,11 +630,23 @@ namespace TouchNStars.Utility {
         /// Handles various content types like string, TextBlock, or other WPF elements
         /// </summary>
         private static string GetButtonText(System.Windows.Controls.Button button) {
-            if (button == null || button.Content == null) {
+            if (button == null) {
                 return string.Empty;
             }
 
             try {
+                // Check ToolTip first (often contains the button text for icon-only buttons)
+                if (button.ToolTip != null) {
+                    var tooltip = button.ToolTip.ToString();
+                    if (!string.IsNullOrEmpty(tooltip) && tooltip != button.ToolTip.GetType().FullName) {
+                        return tooltip;
+                    }
+                }
+
+                if (button.Content == null) {
+                    return string.Empty;
+                }
+
                 // Simple case: Content is a string
                 if (button.Content is string text) {
                     return text;
@@ -662,8 +674,13 @@ namespace TouchNStars.Utility {
                     }
                 }
 
-                // Fallback: ToString() on the content
-                return button.Content.ToString();
+                // Fallback: ToString() on the content (but avoid type names)
+                var contentStr = button.Content.ToString();
+                if (contentStr != null && !contentStr.StartsWith("System.") && !contentStr.Contains(".")) {
+                    return contentStr;
+                }
+
+                return string.Empty;
             } catch (Exception ex) {
                 Logger.Debug($"DialogManager: Error extracting button text: {ex.Message}");
                 return string.Empty;
@@ -830,98 +847,89 @@ namespace TouchNStars.Utility {
                 ["Type"] = "PlateSolvingStatus"
             };
 
-            // Extract all text elements in order
-            var allTexts = new List<string>();
-            for (int i = 1; i <= rawContent.Count; i++) {
-                if (rawContent.TryGetValue($"Text{i}", out var text)) {
-                    allTexts.Add(text?.ToString() ?? "");
-                }
-            }
+            // Fixed structure for PlateSolvingStatusVM (language-independent):
+            // Text1-26: Parameters (13 key-value pairs)
+            // Text27: Status message (optional, e.g., "Exposing")
+            // Text28-37: Table headers (10 headers, but only 9 data columns - "Success" has no data)
+            // Text38+: Table data (9 values per row)
 
-            if (allTexts.Count == 0) {
-                return rawContent;
-            }
+            int totalTexts = rawContent.Count;
+            Logger.Debug($"DialogManager: Parsing PlateSolving with {totalTexts} text elements using fixed structure");
 
-            Logger.Debug($"DialogManager: Parsing PlateSolving with {allTexts.Count} text elements");
-
-            // Find "Time" which marks the start of the table
-            var timeIdx = allTexts.IndexOf("Time");
-
-            if (timeIdx < 0) {
-                // No table found, return raw
-                return structured;
-            }
-
-            // Parse parameters (everything before "Time" or status messages)
+            // Parse parameters (Text1-26 = 13 pairs)
             var parameters = new Dictionary<string, object>();
-            for (int i = 0; i < timeIdx - 1; i += 2) {
-                if (i + 1 >= timeIdx) break;
-
-                var key = allTexts[i];
-                var value = allTexts[i + 1];
-
-                // Skip status messages
-                if (key.Contains("Exposing") || key.Contains("tolerance") || key.Contains("slewing")) {
-                    continue;
+            for (int i = 1; i <= 26 && i <= totalTexts; i += 2) {
+                if (rawContent.TryGetValue($"Text{i}", out var keyObj) &&
+                    rawContent.TryGetValue($"Text{i + 1}", out var valueObj)) {
+                    var key = keyObj?.ToString() ?? "";
+                    var value = valueObj?.ToString() ?? "";
+                    var cleanKey = key.Replace(" ", "").Replace("(", "").Replace(")", "").Replace("/", "");
+                    parameters[cleanKey] = value;
                 }
-
-                var cleanKey = key.Replace(" ", "").Replace("(", "").Replace(")", "");
-                parameters[cleanKey] = value;
             }
-
             structured["Parameters"] = parameters;
 
-            // Extract table headers (from "Time" until first data row)
-            var headers = new List<string>();
-            int headerIdx = timeIdx;
-
-            while (headerIdx < allTexts.Count) {
-                var text = allTexts[headerIdx];
-                // Check if this is a time value (first data cell) - format: HH:MM:SS
-                if (text.Contains(":") && text.Split(':').Length == 3 && headerIdx > timeIdx) {
-                    break;
+            // Status message (Text27, optional)
+            if (rawContent.TryGetValue("Text27", out var statusObj)) {
+                var status = statusObj?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(status)) {
+                    structured["StatusMessage"] = status;
                 }
-                headers.Add(text);
-                headerIdx++;
             }
 
-            Logger.Debug($"DialogManager: Found {headers.Count} table headers starting at index {timeIdx}");
+            // Table headers (Text28-37 = 10 headers)
+            var headers = new List<string>();
+            for (int i = 28; i <= 37 && i <= totalTexts; i++) {
+                if (rawContent.TryGetValue($"Text{i}", out var headerObj)) {
+                    headers.Add(headerObj?.ToString() ?? "");
+                }
+            }
 
-            // Extract all table rows
+            // Remove the 2nd header (index 1, usually "Success") as it has no corresponding data
+            var dataHeaders = new List<string>();
+            for (int i = 0; i < headers.Count; i++) {
+                if (i != 1) { // Skip index 1 (Success column has no data)
+                    dataHeaders.Add(headers[i]);
+                }
+            }
+
+            structured["TableHeaders"] = dataHeaders;
+            Logger.Debug($"DialogManager: Found {dataHeaders.Count} data headers (skipped header at index 1)");
+
+            // Table data starts at Text38, 9 values per row
             var tableRows = new List<Dictionary<string, object>>();
-            int dataIdx = headerIdx;
+            int dataStartIdx = 38;
+            int columnsPerRow = 9;
 
-            while (dataIdx < allTexts.Count) {
+            int rowNum = 0;
+            while (dataStartIdx + (rowNum * columnsPerRow) + columnsPerRow - 1 <= totalTexts) {
                 var row = new Dictionary<string, object>();
+                bool hasData = false;
 
-                for (int i = 0; i < headers.Count && (dataIdx + i) < allTexts.Count; i++) {
-                    var header = headers[i].Replace(" ", "").Replace("(", "").Replace(")", "");
-                    row[header] = allTexts[dataIdx + i];
+                for (int col = 0; col < columnsPerRow && col < dataHeaders.Count; col++) {
+                    int textIdx = dataStartIdx + (rowNum * columnsPerRow) + col;
+                    if (rawContent.TryGetValue($"Text{textIdx}", out var cellObj)) {
+                        var cellValue = cellObj?.ToString() ?? "";
+                        var header = dataHeaders[col].Replace(" ", "").Replace("(", "").Replace(")", "").Replace("/", "");
+                        row[header] = cellValue;
+                        hasData = true;
+                    }
                 }
 
-                if (row.Count > 0) {
+                if (hasData) {
                     tableRows.Add(row);
+                    rowNum++;
+                } else {
+                    break;
                 }
-
-                dataIdx += headers.Count;
             }
 
             Logger.Debug($"DialogManager: Extracted {tableRows.Count} table rows");
 
+            structured["Table"] = tableRows;
+
             if (tableRows.Count > 0) {
-                structured["Table"] = tableRows;
                 structured["LatestResult"] = tableRows[0]; // First row is most recent
-            }
-
-            // Extract status message
-            var statusMsg = allTexts.FirstOrDefault(t =>
-                t.Contains("tolerance") ||
-                t.Contains("target") ||
-                t.Contains("slewing") ||
-                t.Contains("Exposing"));
-
-            if (!string.IsNullOrEmpty(statusMsg)) {
-                structured["StatusMessage"] = statusMsg;
             }
 
             return structured;
