@@ -43,7 +43,8 @@ namespace TouchNStars.Server {
                 .WithController<TelescopiusController>() // Telescopius PIAAPI proxy
                 .WithController<MessageBoxController>()  // TNS MessageBox management
                 .WithController<SystemController>()      // System control (shutdown/restart)
-                .WithController<SettingsController>());  // Settings management
+                .WithController<SettingsController>()    // Settings management
+                .WithController<FavoritesController>()); // Favorites management
             WebServer = WebServer.WithStaticFolder("/", webAppDir, false); // Register the static folder, which will be used to serve the web app
         }
 

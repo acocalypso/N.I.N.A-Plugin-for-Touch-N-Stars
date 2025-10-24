@@ -86,12 +86,8 @@ public class ApiResponse {
 public class Controller : WebApiController {
 
     private static readonly List<string> excluded_members = new List<string>() { "GetEquipment", "RequestAll", "LoadPlugin" };
-    private static readonly string FavoritesFilePath = Path.Combine(
-     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-     "NINA", "TnsCache", "favorites.json"
-    );
-    // SettingsFilePath moved to Controllers/SettingsController.cs
-    private static readonly object _fileLock = new();
+    // FavoritesFilePath and _fileLock moved to Controllers/FavoritesController.cs
+    // SettingsFilePath and _fileLock moved to Controllers/SettingsController.cs
     // PHD2 services moved to Controllers/PHD2Controller.cs
 
     [Route(HttpVerbs.Get, "/logs")]
