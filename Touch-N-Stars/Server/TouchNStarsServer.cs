@@ -44,7 +44,8 @@ namespace TouchNStars.Server {
                 .WithController<MessageBoxController>()  // TNS MessageBox management
                 .WithController<SystemController>()      // System control (shutdown/restart)
                 .WithController<SettingsController>()    // Settings management
-                .WithController<FavoritesController>()); // Favorites management
+                .WithController<FavoritesController>()   // Favorites management
+                .WithController<TargetSearchController>()); // NGC search and target pictures
             WebServer = WebServer.WithStaticFolder("/", webAppDir, false); // Register the static folder, which will be used to serve the web app
         }
 
