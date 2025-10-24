@@ -2961,55 +2961,93 @@ public class Controller : WebApiController {
         }
     }
 
-    [Route(HttpVerbs.Post, "/dialogs/execute-command")]
-    public ApiResponse ExecuteDialogCommand()
+    /// <summary>
+    /// Unified endpoint for clicking buttons in dialogs
+    /// </summary>
+    [Route(HttpVerbs.Post, "/dialogs/click-button")]
+    public ApiResponse ClickButton()
     {
         try
         {
-            string typeName = HttpContext.Request.QueryString["type"];
-            string commandName = HttpContext.Request.QueryString["command"];
+            string window = HttpContext.Request.QueryString["window"];
+            string button = HttpContext.Request.QueryString["button"];
 
-            if (string.IsNullOrEmpty(typeName))
+            if (string.IsNullOrEmpty(button))
             {
                 HttpContext.Response.StatusCode = 400;
                 return new ApiResponse
                 {
                     Success = false,
-                    Error = "Missing 'type' query parameter",
+                    Error = "Missing 'button' query parameter (button name, text, or standard button: Yes/No/OK/Cancel)",
                     StatusCode = 400,
                     Type = "BadRequest"
                 };
             }
 
-            if (string.IsNullOrEmpty(commandName))
+            // If window is not specified, try to click on any MessageBox with the button
+            if (string.IsNullOrEmpty(window))
             {
-                HttpContext.Response.StatusCode = 400;
+                int count = DialogManager.ClickMessageBoxButton(button);
+
+                if (count > 0)
+                {
+                    Logger.Info($"Clicked '{button}' button on {count} MessageBox(es) via API");
+                    return new ApiResponse
+                    {
+                        Success = true,
+                        Response = new
+                        {
+                            Message = $"Clicked '{button}' button on {count} MessageBox(es)",
+                            Count = count,
+                            Button = button
+                        },
+                        StatusCode = 200,
+                        Type = "ButtonClicked"
+                    };
+                }
+                else
+                {
+                    HttpContext.Response.StatusCode = 404;
+                    return new ApiResponse
+                    {
+                        Success = false,
+                        Error = $"No MessageBox found with button '{button}'",
+                        StatusCode = 404,
+                        Type = "NotFound"
+                    };
+                }
+            }
+
+            // Window specified - click button in specific window
+            bool clicked = DialogManager.ClickWindowButton(window, button);
+
+            if (clicked)
+            {
+                Logger.Info($"Clicked button '{button}' in window '{window}' via API");
+                return new ApiResponse
+                {
+                    Success = true,
+                    Response = new
+                    {
+                        Message = $"Successfully clicked button '{button}' in window '{window}'",
+                        Window = window,
+                        Button = button
+                    },
+                    StatusCode = 200,
+                    Type = "ButtonClicked"
+                };
+            }
+            else
+            {
+                HttpContext.Response.StatusCode = 404;
                 return new ApiResponse
                 {
                     Success = false,
-                    Error = "Missing 'command' query parameter",
-                    StatusCode = 400,
-                    Type = "BadRequest"
+                    Error = $"Button '{button}' not found in window '{window}'",
+                    StatusCode = 404,
+                    Type = "NotFound"
                 };
             }
-
-            int count = DialogManager.ExecuteDialogCommand(typeName, commandName);
-
-            Logger.Info($"Executed command '{commandName}' on {count} dialog(s) of type '{typeName}' via API");
-
-            return new ApiResponse
-            {
-                Success = true,
-                Response = new
-                {
-                    Message = $"Executed command '{commandName}' on {count} dialog(s)",
-                    Count = count,
-                    Type = typeName,
-                    Command = commandName
-                },
-                StatusCode = 200,
-                Type = "CommandExecuted"
-            };
         }
         catch (Exception ex)
         {
@@ -3025,55 +3063,6 @@ public class Controller : WebApiController {
         }
     }
 
-    [Route(HttpVerbs.Post, "/dialogs/click-messagebox-button")]
-    public ApiResponse ClickMessageBoxButton()
-    {
-        try
-        {
-            string buttonType = HttpContext.Request.QueryString["button"];
-
-            if (string.IsNullOrEmpty(buttonType))
-            {
-                HttpContext.Response.StatusCode = 400;
-                return new ApiResponse
-                {
-                    Success = false,
-                    Error = "Missing 'button' query parameter. Valid values: Yes, No, OK, Cancel",
-                    StatusCode = 400,
-                    Type = "BadRequest"
-                };
-            }
-
-            int count = DialogManager.ClickMessageBoxButton(buttonType);
-
-            Logger.Info($"Clicked '{buttonType}' button on {count} MessageBox(es) via API");
-
-            return new ApiResponse
-            {
-                Success = true,
-                Response = new
-                {
-                    Message = $"Clicked '{buttonType}' button on {count} MessageBox(es)",
-                    Count = count,
-                    Button = buttonType
-                },
-                StatusCode = 200,
-                Type = "ButtonClicked"
-            };
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex);
-            HttpContext.Response.StatusCode = 500;
-            return new ApiResponse
-            {
-                Success = false,
-                Error = ex.Message,
-                StatusCode = 500,
-                Type = "Error"
-            };
-        }
-    }
 
     [Route(HttpVerbs.Get, "/dialogs/debug")]
     public ApiResponse GetDetailedDialogDebugInfo()
@@ -3108,80 +3097,4 @@ public class Controller : WebApiController {
         }
     }
 
-    [Route(HttpVerbs.Post, "/dialogs/click-window-button")]
-    public ApiResponse ClickWindowButton()
-    {
-        try
-        {
-            string windowTitle = HttpContext.Request.QueryString["window"];
-            string buttonText = HttpContext.Request.QueryString["button"];
-
-            if (string.IsNullOrEmpty(windowTitle))
-            {
-                HttpContext.Response.StatusCode = 400;
-                return new ApiResponse
-                {
-                    Success = false,
-                    Error = "Missing 'window' query parameter (window title or partial title)",
-                    StatusCode = 400,
-                    Type = "BadRequest"
-                };
-            }
-
-            if (string.IsNullOrEmpty(buttonText))
-            {
-                HttpContext.Response.StatusCode = 400;
-                return new ApiResponse
-                {
-                    Success = false,
-                    Error = "Missing 'button' query parameter (button name or content text)",
-                    StatusCode = 400,
-                    Type = "BadRequest"
-                };
-            }
-
-            bool clicked = DialogManager.ClickWindowButton(windowTitle, buttonText);
-
-            if (clicked)
-            {
-                Logger.Info($"Clicked button '{buttonText}' in window '{windowTitle}' via API");
-
-                return new ApiResponse
-                {
-                    Success = true,
-                    Response = new
-                    {
-                        Message = $"Successfully clicked button '{buttonText}' in window '{windowTitle}'",
-                        Window = windowTitle,
-                        Button = buttonText
-                    },
-                    StatusCode = 200,
-                    Type = "ButtonClicked"
-                };
-            }
-            else
-            {
-                HttpContext.Response.StatusCode = 404;
-                return new ApiResponse
-                {
-                    Success = false,
-                    Error = $"Button '{buttonText}' not found in window '{windowTitle}'",
-                    StatusCode = 404,
-                    Type = "NotFound"
-                };
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex);
-            HttpContext.Response.StatusCode = 500;
-            return new ApiResponse
-            {
-                Success = false,
-                Error = ex.Message,
-                StatusCode = 500,
-                Type = "Error"
-            };
-        }
-    }
 }
