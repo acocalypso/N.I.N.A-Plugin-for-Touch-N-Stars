@@ -136,7 +136,7 @@ namespace TouchNStars {
         public override Task Teardown() {
             server.Stop();
             Communicator.Dispose();
-            Server.Controller.CleanupPHD2Service();
+            Server.Controllers.PHD2Controller.CleanupPHD2Service();
             return base.Teardown();
         }
 
