@@ -37,7 +37,7 @@ namespace TouchNStars.Server {
                 WebServer = WebServer.WithModule(new RedirectModule("/" + endPoint, "/")); // redirect all reloads of the app to the root
             }
             WebServer = WebServer.WithWebApi("/api", m => m
-                .WithController<Controller>()            // Main controller
+                .WithController<AutofocusController>()   // Autofocus control
                 .WithController<DialogController>()      // Dialog endpoints
                 .WithController<PHD2Controller>()        // PHD2 guiding endpoints
                 .WithController<TelescopiusController>() // Telescopius PIAAPI proxy
@@ -45,7 +45,8 @@ namespace TouchNStars.Server {
                 .WithController<SystemController>()      // System control (shutdown/restart)
                 .WithController<SettingsController>()    // Settings management
                 .WithController<FavoritesController>()   // Favorites management
-                .WithController<TargetSearchController>()); // NGC search and target pictures
+                .WithController<TargetSearchController>() // NGC search and target pictures
+                .WithController<UtilityController>());   // Logs, version, api-port
             WebServer = WebServer.WithStaticFolder("/", webAppDir, false); // Register the static folder, which will be used to serve the web app
         }
 
