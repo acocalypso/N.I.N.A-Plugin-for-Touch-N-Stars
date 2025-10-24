@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TouchNStars.PHD2;
+using TouchNStars.Server.Models;
+using TouchNStars.Server.Services;
 using TouchNStars.Utility;
 
 namespace TouchNStars.Server.Controllers;

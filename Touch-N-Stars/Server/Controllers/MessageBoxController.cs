@@ -1,3 +1,4 @@
+using TouchNStars.Server.Models;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;

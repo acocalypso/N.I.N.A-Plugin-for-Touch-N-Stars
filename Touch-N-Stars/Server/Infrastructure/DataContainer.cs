@@ -1,5 +1,4 @@
-using System;
-using TouchNStars.Server;
+namespace TouchNStars.Server.Infrastructure;
 
 internal static class DataContainer {
     internal static object lockObj = new object();

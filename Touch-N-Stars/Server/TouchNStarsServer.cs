@@ -12,6 +12,7 @@ using TouchNStars.Properties;
 using System.Threading.Tasks;
 using System.Text;
 using TouchNStars.Server.Controllers;
+using TouchNStars.Server.Services;
 
 namespace TouchNStars.Server {
     public class TouchNStarsServer {

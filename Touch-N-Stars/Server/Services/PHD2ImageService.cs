@@ -12,7 +12,7 @@ using NINA.Core.Enum;
 using System.Windows.Media.Imaging;
 using NINA.WPF.Base.Utility;
 
-namespace TouchNStars.Server
+namespace TouchNStars.Server.Services
 {
     public class PHD2ImageService : IDisposable
     {

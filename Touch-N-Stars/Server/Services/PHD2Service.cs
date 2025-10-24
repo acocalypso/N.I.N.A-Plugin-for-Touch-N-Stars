@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using NINA.Core.Utility;
 using TouchNStars.PHD2;
 
-namespace TouchNStars.Server
+namespace TouchNStars.Server.Services
 {
     public class PHD2Service : IDisposable
     {
