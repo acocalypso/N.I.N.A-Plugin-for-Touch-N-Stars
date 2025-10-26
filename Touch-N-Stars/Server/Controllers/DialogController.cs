@@ -16,13 +16,21 @@ public class DialogController : WebApiController
 {
     /// <summary>
     /// GET /api/dialogs/list - Get all open NINA dialogs
+    /// Query parameter: debug=true to include raw text elements
     /// </summary>
     [Route(HttpVerbs.Get, "/dialogs/list")]
     public ApiResponse GetAllNinaDialogs()
     {
         try
         {
-            var dialogs = DialogManager.GetAllDialogs();
+            // Check for debug parameter
+            bool debug = false;
+            if (HttpContext.Request.QueryString.AllKeys.Contains("debug"))
+            {
+                bool.TryParse(HttpContext.Request.QueryString["debug"], out debug);
+            }
+
+            var dialogs = DialogManager.GetAllDialogs(debug);
 
             return new ApiResponse
             {

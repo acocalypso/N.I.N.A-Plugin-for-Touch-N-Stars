@@ -30,7 +30,8 @@ namespace TouchNStars.Utility {
         /// <summary>
         /// Get all currently active dialog windows (excluding main window)
         /// </summary>
-        public static List<DialogInfo> GetAllDialogs() {
+        /// <param name="includeRawContent">If true, includes raw text elements for debugging</param>
+        public static List<DialogInfo> GetAllDialogs(bool includeRawContent = false) {
             var dialogs = new List<DialogInfo>();
 
             try {
@@ -77,6 +78,11 @@ namespace TouchNStars.Utility {
                         } else {
                             // No DataContext - extract text from window directly
                             var rawContent = ExtractTextContentFromWindow(window);
+
+                            // If debug mode, add raw content before parsing
+                            if (includeRawContent) {
+                                info.Content["_RawTextElements"] = rawContent;
+                            }
 
                             // Try to parse structured content based on ContentType
                             var parsedContent = ParseStructuredContent(info.ContentType, rawContent);
@@ -512,6 +518,11 @@ namespace TouchNStars.Utility {
                         continue;
                     }
                 }
+
+                // Normalize: If there's a "Text" property but no "Message", copy Text to Message
+                if (content.ContainsKey("Text") && !content.ContainsKey("Message")) {
+                    content["Message"] = content["Text"];
+                }
             } catch (Exception ex) {
                 Logger.Error($"DialogManager: Error extracting content: {ex}");
             }
@@ -847,14 +858,45 @@ namespace TouchNStars.Utility {
                 ["Type"] = "PlateSolvingStatus"
             };
 
-            // Fixed structure for PlateSolvingStatusVM (language-independent):
+            int totalTexts = rawContent.Count;
+            Logger.Debug($"DialogManager: Parsing PlateSolving with {totalTexts} text elements");
+
+            // Check if this is an empty/initial state by looking for characteristic patterns
+            // In empty state: Parameters are mixed with table headers
+            // Empty dialogs typically have around 31 text elements (without table data)
+            bool isEmpty = totalTexts <= 35; // Empty dialogs have fewer text elements
+
+            if (isEmpty) {
+                Logger.Debug($"DialogManager: Detected empty PlateSolving dialog (no table data yet)");
+
+                // Status message is always in Text21 (fixed position for empty dialogs)
+                string statusMessage = "Initializing";
+                if (rawContent.TryGetValue("Text21", out var text21Obj)) {
+                    var status = text21Obj?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(status)) {
+                        statusMessage = status;
+                        Logger.Debug($"DialogManager: Found status message in Text21: '{statusMessage}'");
+                    }
+                }
+
+                // In empty state, just extract what we can without strict structure
+                structured["Parameters"] = new Dictionary<string, object> {
+                    ["Status"] = "Initializing"
+                };
+                structured["StatusMessage"] = statusMessage;
+                structured["TableHeaders"] = new List<string>();
+                structured["Table"] = new List<Dictionary<string, object>>();
+
+                return structured;
+            }
+
+            // Fixed structure for PlateSolvingStatusVM with data (language-independent):
             // Text1-26: Parameters (13 key-value pairs)
             // Text27: Status message (optional, e.g., "Exposing")
             // Text28-37: Table headers (10 headers, but only 9 data columns - "Success" has no data)
             // Text38+: Table data (9 values per row)
 
-            int totalTexts = rawContent.Count;
-            Logger.Debug($"DialogManager: Parsing PlateSolving with {totalTexts} text elements using fixed structure");
+            Logger.Debug($"DialogManager: Parsing PlateSolving with data using fixed structure");
 
             // Parse parameters (Text1-26 = 13 pairs)
             var parameters = new Dictionary<string, object>();
@@ -863,18 +905,67 @@ namespace TouchNStars.Utility {
                     rawContent.TryGetValue($"Text{i + 1}", out var valueObj)) {
                     var key = keyObj?.ToString() ?? "";
                     var value = valueObj?.ToString() ?? "";
+
+                    // Skip if the value looks like a table header (contains typical header keywords)
+                    if (value.Contains("Fehler", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains("Pixel", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains("Zeit", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains("Time", StringComparison.OrdinalIgnoreCase) ||
+                        value.Contains("Pix", StringComparison.OrdinalIgnoreCase)) {
+                        Logger.Debug($"DialogManager: Skipping parameter pair - appears to be table header: '{key}' = '{value}'");
+                        continue;
+                    }
+
                     var cleanKey = key.Replace(" ", "").Replace("(", "").Replace(")", "").Replace("/", "");
                     parameters[cleanKey] = value;
                 }
             }
+
+            // If we have too few valid parameters, it's likely an empty/initial state
+            if (parameters.Count < 5) {
+                Logger.Debug($"DialogManager: Only {parameters.Count} valid parameters found - treating as empty state");
+
+                // Status message is in Text21 for empty dialogs
+                string statusMessage = "Initializing";
+                if (rawContent.TryGetValue("Text21", out var text21Obj2)) {
+                    var status = text21Obj2?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(status)) {
+                        statusMessage = status;
+                        Logger.Debug($"DialogManager: Found status message in Text21: '{statusMessage}'");
+                    }
+                }
+
+                structured["Parameters"] = new Dictionary<string, object> {
+                    ["Status"] = "Initializing"
+                };
+                structured["StatusMessage"] = statusMessage;
+                structured["TableHeaders"] = new List<string>();
+                structured["Table"] = new List<Dictionary<string, object>>();
+                return structured;
+            }
+
             structured["Parameters"] = parameters;
 
             // Status message (Text27, optional)
+            // Only include if it's a valid status message (not a table header)
             if (rawContent.TryGetValue("Text27", out var statusObj)) {
                 var status = statusObj?.ToString() ?? "";
-                if (!string.IsNullOrEmpty(status)) {
+                // Filter out table headers that might appear in Text27
+                // Table headers typically contain "error", "Zeit", "Time", "Pixel", "Arcsec", etc.
+                var isTableHeader = status.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                                   status.Contains("Pixel", StringComparison.OrdinalIgnoreCase) ||
+                                   status.Contains("Arcsec", StringComparison.OrdinalIgnoreCase) ||
+                                   status.Contains("Success", StringComparison.OrdinalIgnoreCase) ||
+                                   status.Contains("Erfolg", StringComparison.OrdinalIgnoreCase) ||
+                                   status.Contains("Fehler", StringComparison.OrdinalIgnoreCase) ||
+                                   status.Equals("Zeit", StringComparison.OrdinalIgnoreCase) ||
+                                   status.Equals("Time", StringComparison.OrdinalIgnoreCase);
+
+                if (!string.IsNullOrEmpty(status) && !isTableHeader) {
                     structured["StatusMessage"] = status;
                 }
+                // Don't set StatusMessage if it's a table header - will be removed later if table has data
             }
 
             // Table headers (Text28-37 = 10 headers)
@@ -930,6 +1021,22 @@ namespace TouchNStars.Utility {
 
             if (tableRows.Count > 0) {
                 structured["LatestResult"] = tableRows[0]; // First row is most recent
+
+                // When table has data, the process is complete
+                // Check if StatusMessage is a table header and replace it
+                if (structured.ContainsKey("StatusMessage")) {
+                    var statusMsg = structured["StatusMessage"]?.ToString() ?? "";
+                    var isTableHeader = statusMsg.Equals("Zeit", StringComparison.OrdinalIgnoreCase) ||
+                                       statusMsg.Equals("Time", StringComparison.OrdinalIgnoreCase) ||
+                                       statusMsg.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                                       statusMsg.Contains("Fehler", StringComparison.OrdinalIgnoreCase) ||
+                                       statusMsg.Contains("Pixel", StringComparison.OrdinalIgnoreCase);
+
+                    if (isTableHeader) {
+                        // Remove StatusMessage when process is complete (table has data)
+                        structured.Remove("StatusMessage");
+                    }
+                }
             }
 
             return structured;
