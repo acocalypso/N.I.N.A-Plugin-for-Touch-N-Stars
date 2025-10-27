@@ -14,6 +14,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using TouchNStars.Utility;
 using TouchNStars.PHD2;
@@ -2775,6 +2776,136 @@ public class Controller : WebApiController {
                 },
                 StatusCode = 200,
                 Type = "MessageBoxCount"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Get, "/framing/status")]
+    public ApiResponse GetFramingStatus()
+    {
+        try
+        {
+            var framingAssistantVM = TouchNStars.Mediators.FramingAssistantVM;
+
+            if (framingAssistantVM == null)
+            {
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "FramingAssistantVM nicht verfügbar",
+                    StatusCode = 503,
+                    Type = "Error"
+                };
+            }
+
+            // Check if SlewToCoordinatesCommand can be executed (implies slew is available/not running)
+            bool canCancel = framingAssistantVM.SlewToCoordinatesCommand?.CanExecute(null) == false;
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    isSlewRunning = canCancel,
+                    canCancel = canCancel
+                },
+                StatusCode = 200,
+                Type = "FramingStatus"
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex);
+            HttpContext.Response.StatusCode = 500;
+            return new ApiResponse
+            {
+                Success = false,
+                Error = ex.Message,
+                StatusCode = 500,
+                Type = "Error"
+            };
+        }
+    }
+
+    [Route(HttpVerbs.Post, "/framing/cancel")]
+    public ApiResponse CancelSlewAndCenter()
+    {
+        try
+        {
+            var framingAssistantVM = TouchNStars.Mediators.FramingAssistantVM as dynamic;
+
+            if (framingAssistantVM == null)
+            {
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "FramingAssistantVM nicht verfügbar",
+                    StatusCode = 503,
+                    Type = "Error"
+                };
+            }
+
+            // Try to access CancelSlewToCoordinatesCommand via reflection since it's not in the interface
+            var cancelCommandProperty = framingAssistantVM.GetType().GetProperty("CancelSlewToCoordinatesCommand");
+
+            if (cancelCommandProperty == null)
+            {
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "CancelSlewToCoordinatesCommand nicht verfügbar",
+                    StatusCode = 503,
+                    Type = "Error"
+                };
+            }
+
+            var cancelCommand = cancelCommandProperty.GetValue(framingAssistantVM) as ICommand;
+
+            if (cancelCommand == null)
+            {
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "CancelSlewToCoordinatesCommand konnte nicht aufgelöst werden",
+                    StatusCode = 503,
+                    Type = "Error"
+                };
+            }
+
+            if (!cancelCommand.CanExecute(null))
+            {
+                return new ApiResponse
+                {
+                    Success = false,
+                    Error = "Cancel-Command kann momentan nicht ausgeführt werden",
+                    StatusCode = 409,
+                    Type = "Error"
+                };
+            }
+
+            cancelCommand.Execute(null);
+
+            return new ApiResponse
+            {
+                Success = true,
+                Response = new
+                {
+                    message = "Slew and Center erfolgreich abgebrochen"
+                },
+                StatusCode = 200,
+                Type = "FramingCancel"
             };
         }
         catch (Exception ex)
