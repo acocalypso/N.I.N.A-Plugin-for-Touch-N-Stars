@@ -2804,7 +2804,7 @@ public class Controller : WebApiController {
                 return new ApiResponse
                 {
                     Success = false,
-                    Error = "FramingAssistantVM nicht verfügbar",
+                    Error = "FramingAssistantVM is not available",
                     StatusCode = 503,
                     Type = "Error"
                 };
@@ -2851,7 +2851,7 @@ public class Controller : WebApiController {
                 return new ApiResponse
                 {
                     Success = false,
-                    Error = "FramingAssistantVM nicht verfügbar",
+                    Error = "FramingAssistantVM is not available",
                     StatusCode = 503,
                     Type = "Error"
                 };
@@ -2865,7 +2865,7 @@ public class Controller : WebApiController {
                 return new ApiResponse
                 {
                     Success = false,
-                    Error = "CancelSlewToCoordinatesCommand nicht verfügbar",
+                    Error = "CancelSlewToCoordinatesCommand is not available",
                     StatusCode = 503,
                     Type = "Error"
                 };
@@ -2878,7 +2878,7 @@ public class Controller : WebApiController {
                 return new ApiResponse
                 {
                     Success = false,
-                    Error = "CancelSlewToCoordinatesCommand konnte nicht aufgelöst werden",
+                    Error = "CancelSlewToCoordinatesCommand could not be resolved",
                     StatusCode = 503,
                     Type = "Error"
                 };
@@ -2889,7 +2889,7 @@ public class Controller : WebApiController {
                 return new ApiResponse
                 {
                     Success = false,
-                    Error = "Cancel-Command kann momentan nicht ausgeführt werden",
+                    Error = "Cancel command cannot be executed at this time",
                     StatusCode = 409,
                     Type = "Error"
                 };
@@ -2902,7 +2902,7 @@ public class Controller : WebApiController {
                 Success = true,
                 Response = new
                 {
-                    message = "Slew and Center erfolgreich abgebrochen"
+                    message = "Slew and Center cancelled successfully"
                 },
                 StatusCode = 200,
                 Type = "FramingCancel"
