@@ -97,6 +97,12 @@ namespace TouchNStars.Utility {
                         info.AvailableCommands = ExtractButtonsFromWindow(window);
                         Logger.Debug($"DialogManager: Extracted {info.AvailableCommands.Count} buttons from window '{info.Title}'");
 
+                        // Skip dialogs without content (empty windows)
+                        if (string.IsNullOrEmpty(info.ContentType) && info.Content.Count == 0 && info.AvailableCommands.Count == 0) {
+                            Logger.Debug($"DialogManager: Skipping empty window '{info.Title}' (no content, no buttons)");
+                            continue;
+                        }
+
                         dialogs.Add(info);
                     }
                 });

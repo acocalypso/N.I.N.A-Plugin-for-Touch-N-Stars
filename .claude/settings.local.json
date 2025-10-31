@@ -9,7 +9,8 @@
       "Read(//c/Users/astro/Documents/TNS/NINA/nina/**)",
       "Read(//c/temp/**)",
       "Bash(dotnet build:*)",
-      "Bash(Select-String \"error|Fehler|Erfolg|succeeded\")"
+      "Bash(Select-String \"error|Fehler|Erfolg|succeeded\")",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []
