@@ -395,6 +395,35 @@ namespace TouchNStars.Utility {
         }
 
         /// <summary>
+        /// Click a button by text in any dialog (language-independent)
+        /// </summary>
+        /// <param name="buttonText">The text or name of the button to click</param>
+        /// <returns>Number of buttons clicked</returns>
+        public static int ClickButtonByTextInAnyDialog(string buttonText) {
+            int clickedCount = 0;
+
+            try {
+                Application.Current?.Dispatcher.Invoke(() => {
+                    foreach (Window window in Application.Current.Windows) {
+                        if (window == Application.Current.MainWindow) {
+                            continue;
+                        }
+
+                        // Try to click button in this window by text
+                        if (TryClickButton(window, buttonText)) {
+                            clickedCount++;
+                            Logger.Info($"DialogManager: Clicked button '{buttonText}' in dialog");
+                        }
+                    }
+                });
+            } catch (Exception ex) {
+                Logger.Error($"DialogManager: Error clicking button by text: {ex}");
+            }
+
+            return clickedCount;
+        }
+
+        /// <summary>
         /// Click a specific button on NINA MessageBoxes by type (Yes/No/OK/Cancel)
         /// </summary>
         /// <param name="buttonType">"Yes", "No", "OK", or "Cancel"</param>

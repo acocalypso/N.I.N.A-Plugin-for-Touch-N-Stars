@@ -225,20 +225,20 @@ public class DialogController : WebApiController
                 };
             }
 
-            // If window is not specified, try to click on any MessageBox with the button
+            // If window is not specified, try to click button by text in any dialog
             if (string.IsNullOrEmpty(window))
             {
-                int count = DialogManager.ClickMessageBoxButton(button);
+                int count = DialogManager.ClickButtonByTextInAnyDialog(button);
 
                 if (count > 0)
                 {
-                    Logger.Info($"Clicked '{button}' button on {count} MessageBox(es) via API");
+                    Logger.Info($"Clicked '{button}' button on {count} dialog(s) via API");
                     return new ApiResponse
                     {
                         Success = true,
                         Response = new
                         {
-                            Message = $"Clicked '{button}' button on {count} MessageBox(es)",
+                            Message = $"Clicked '{button}' button on {count} dialog(s)",
                             Count = count,
                             Button = button
                         },
@@ -252,7 +252,7 @@ public class DialogController : WebApiController
                     return new ApiResponse
                     {
                         Success = false,
-                        Error = $"No MessageBox found with button '{button}'",
+                        Error = $"No button '{button}' found in any dialog",
                         StatusCode = 404,
                         Type = "NotFound"
                     };
