@@ -25,6 +25,7 @@ namespace TouchNStars.Utility {
             public DateTime DetectedAt { get; set; }
             public Dictionary<string, object> Content { get; set; }
             public List<string> AvailableCommands { get; set; }
+            public object DataContext { get; set; }  // Actual DataContext object for reflection access
         }
 
         /// <summary>
@@ -67,6 +68,9 @@ namespace TouchNStars.Utility {
                         // Get DataContext if available
                         if (window.DataContext != null) {
                             var dataContextType = window.DataContext.GetType();
+
+                            // Store the actual DataContext object for reflection access
+                            info.DataContext = window.DataContext;
 
                             // Check if DataContext has DialogResult property
                             var dialogResultProperty = dataContextType.GetProperty("DialogResult");

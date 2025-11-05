@@ -4,7 +4,9 @@ using EmbedIO.Routing;
 using EmbedIO.WebApi;
 using NINA.Core.Utility;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using TouchNStars.Utility;
 
 namespace TouchNStars.Server.Controllers;
@@ -32,13 +34,17 @@ public class DialogController : WebApiController
 
             var dialogs = DialogManager.GetAllDialogs(debug);
 
+            // Extrahiere Meridian Flip Steps falls vorhanden
+            var meridianFlipSteps = ExtractMeridianFlipSteps(dialogs.Cast<dynamic>().ToList());
+
             return new ApiResponse
             {
                 Success = true,
                 Response = new
                 {
                     Count = dialogs.Count,
-                    Dialogs = dialogs
+                    Dialogs = dialogs,
+                    MeridianFlip = meridianFlipSteps
                 },
                 StatusCode = 200,
                 Type = "DialogList"
@@ -336,6 +342,93 @@ public class DialogController : WebApiController
                 Error = ex.Message,
                 StatusCode = 500,
                 Type = "Error"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Extrahiert Meridian Flip Steps aus den Dialogen mittels Reflection
+    /// </summary>
+    private object ExtractMeridianFlipSteps(List<dynamic> dialogs)
+    {
+        try
+        {
+            // Suche nach MeridianFlipVM
+            var meridianFlipDialog = dialogs.FirstOrDefault(d =>
+                d?.ContentType != null && d.ContentType.Contains("MeridianFlipVM"));
+
+            if (meridianFlipDialog == null)
+            {
+                return new
+                {
+                    Active = false,
+                    Steps = new List<MeridianFlipStep>()
+                };
+            }
+
+            // Versuche Zugriff auf Steps Property via Reflection
+            var dataContext = meridianFlipDialog.DataContext;
+            if (dataContext == null)
+            {
+                return new
+                {
+                    Active = false,
+                    Steps = new List<MeridianFlipStep>()
+                };
+            }
+
+            var stepsProperty = dataContext.GetType().GetProperty("Steps",
+                BindingFlags.Public | BindingFlags.Instance);
+
+            if (stepsProperty == null)
+            {
+                return new
+                {
+                    Active = false,
+                    Steps = new List<MeridianFlipStep>()
+                };
+            }
+
+            var stepsCollection = stepsProperty.GetValue(dataContext) as System.Collections.IEnumerable;
+            var steps = new List<MeridianFlipStep>();
+
+            if (stepsCollection != null)
+            {
+                foreach (var step in stepsCollection)
+                {
+                    if (step == null) continue;
+
+                    var idProp = step.GetType().GetProperty("Id", BindingFlags.Public | BindingFlags.Instance);
+                    var titleProp = step.GetType().GetProperty("Title", BindingFlags.Public | BindingFlags.Instance);
+                    var finishedProp = step.GetType().GetProperty("Finished", BindingFlags.Public | BindingFlags.Instance);
+
+                    if (idProp != null && titleProp != null && finishedProp != null)
+                    {
+                        steps.Add(new MeridianFlipStep
+                        {
+                            Id = idProp.GetValue(step)?.ToString() ?? "",
+                            Title = titleProp.GetValue(step)?.ToString() ?? "",
+                            Finished = (bool)(finishedProp.GetValue(step) ?? false)
+                        });
+                    }
+                }
+            }
+
+            return new
+            {
+                Active = true,
+                StepCount = steps.Count,
+                Steps = steps
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug($"DialogController: Error extracting Meridian Flip steps: {ex.Message}");
+            return new
+            {
+                Active = false,
+                Steps = new List<MeridianFlipStep>(),
+                Error = ex.Message
             };
         }
     }
