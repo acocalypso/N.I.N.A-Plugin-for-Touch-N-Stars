@@ -25,7 +25,11 @@ namespace TouchNStars.Utility {
             public DateTime DetectedAt { get; set; }
             public Dictionary<string, object> Content { get; set; }
             public List<string> AvailableCommands { get; set; }
-            public object DataContext { get; set; }  // Actual DataContext object for reflection access
+
+            // Internal property - NOT serialized, only for reflection access
+            [System.Text.Json.Serialization.JsonIgnore]
+            [Newtonsoft.Json.JsonIgnore]
+            public object DataContext { get; set; }
         }
 
         /// <summary>
@@ -71,6 +75,7 @@ namespace TouchNStars.Utility {
 
                             // Store the actual DataContext object for reflection access
                             info.DataContext = window.DataContext;
+                            Logger.Debug($"DialogManager: Stored DataContext for {info.ContentType}: {dataContextType.Name}");
 
                             // Check if DataContext has DialogResult property
                             var dialogResultProperty = dataContextType.GetProperty("DialogResult");
@@ -79,8 +84,19 @@ namespace TouchNStars.Utility {
 
                             // Extract content from DataContext properties
                             info.Content = ExtractDialogContent(window.DataContext);
+                        } else if (window.Content != null) {
+                            // No DataContext, but Content exists (e.g., MeridianFlipVM is the Content, not DataContext)
+                            Logger.Debug($"DialogManager: DataContext is NULL, using window.Content for '{info.Title}' (ContentType: {info.ContentType})");
+
+                            // Store the Content object as our ViewModel reference
+                            info.DataContext = window.Content;
+                            Logger.Debug($"DialogManager: Stored window.Content as DataContext: {window.Content.GetType().Name}");
+
+                            // Extract content from the Content object
+                            info.Content = ExtractDialogContent(window.Content);
                         } else {
-                            // No DataContext - extract text from window directly
+                            Logger.Debug($"DialogManager: Both DataContext and Content are NULL for window '{info.Title}'");
+                            // No DataContext and no Content - extract text from window directly
                             var rawContent = ExtractTextContentFromWindow(window);
 
                             // If debug mode, add raw content before parsing

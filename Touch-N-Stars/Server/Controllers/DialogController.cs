@@ -34,8 +34,14 @@ public class DialogController : WebApiController
 
             var dialogs = DialogManager.GetAllDialogs(debug);
 
-            // Extrahiere Meridian Flip Steps falls vorhanden
-            var meridianFlipSteps = ExtractMeridianFlipSteps(dialogs.Cast<dynamic>().ToList());
+            // Extrahiere Meridian Flip Steps BEVOR wir den DataContext wegwerfen
+            var meridianFlipSteps = ExtractMeridianFlipSteps(dialogs);
+
+            // Entferne DataContext aus allen Dialogen bevor sie serialisiert werden
+            foreach (var dialog in dialogs)
+            {
+                dialog.DataContext = null;
+            }
 
             return new ApiResponse
             {
@@ -349,13 +355,13 @@ public class DialogController : WebApiController
     /// <summary>
     /// Extrahiert Meridian Flip Steps aus den Dialogen mittels Reflection
     /// </summary>
-    private object ExtractMeridianFlipSteps(List<dynamic> dialogs)
+    private object ExtractMeridianFlipSteps(List<DialogManager.DialogInfo> dialogs)
     {
         try
         {
             // Suche nach MeridianFlipVM
             var meridianFlipDialog = dialogs.FirstOrDefault(d =>
-                d?.ContentType != null && d.ContentType.Contains("MeridianFlipVM"));
+                d.ContentType != null && d.ContentType.Contains("MeridianFlipVM"));
 
             if (meridianFlipDialog == null)
             {
@@ -366,10 +372,16 @@ public class DialogController : WebApiController
                 };
             }
 
-            // Versuche Zugriff auf Steps Property via Reflection
-            var dataContext = meridianFlipDialog.DataContext;
-            if (dataContext == null)
+            // MeridianFlipVM ist das Window.Content, nicht DataContext!
+            // Wir müssen via Reflection auf das window.Content object zugreifen
+            // Das speichern wir als DataContext (Name ist verwirrend, aber das ist wo wir es speichern)
+            var viewModel = meridianFlipDialog.DataContext;
+
+            // Fallback: Versuche Window.Content zu bekommen via Reflection
+            if (viewModel == null)
             {
+                Logger.Debug("DialogController: DataContext is null, trying to access Window properties via Reflection");
+                // Wir können nicht auf Window zugreifen, daher müssen wir das Content-Objekt direkt serialisieren
                 return new
                 {
                     Active = false,
@@ -377,7 +389,7 @@ public class DialogController : WebApiController
                 };
             }
 
-            var stepsProperty = dataContext.GetType().GetProperty("Steps",
+            var stepsProperty = viewModel.GetType().GetProperty("Steps",
                 BindingFlags.Public | BindingFlags.Instance);
 
             if (stepsProperty == null)
@@ -389,7 +401,7 @@ public class DialogController : WebApiController
                 };
             }
 
-            var stepsCollection = stepsProperty.GetValue(dataContext) as System.Collections.IEnumerable;
+            var stepsCollection = stepsProperty.GetValue(viewModel) as System.Collections.IEnumerable;
             var steps = new List<MeridianFlipStep>();
 
             if (stepsCollection != null)
