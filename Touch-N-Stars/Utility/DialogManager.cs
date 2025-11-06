@@ -96,20 +96,33 @@ namespace TouchNStars.Utility {
                             info.Content = ExtractDialogContent(window.Content);
                         } else {
                             Logger.Debug($"DialogManager: Both DataContext and Content are NULL for window '{info.Title}'");
-                            // No DataContext and no Content - extract text from window directly
-                            var rawContent = ExtractTextContentFromWindow(window);
+                            info.Content = new Dictionary<string, object>();
+                        }
 
-                            // If debug mode, add raw content before parsing
+                        // Always extract raw text content from window (for manual rotator, etc.)
+                        // This provides Text1, Text2, etc. in addition to structured ViewModel data
+                        var rawWindowContent = ExtractTextContentFromWindow(window);
+                        if (rawWindowContent != null && rawWindowContent.Count > 0) {
+                            // If debug mode, add raw content with prefix
                             if (includeRawContent) {
-                                info.Content["_RawTextElements"] = rawContent;
+                                info.Content["_RawTextElements"] = rawWindowContent;
                             }
 
                             // Try to parse structured content based on ContentType
-                            var parsedContent = ParseStructuredContent(info.ContentType, rawContent);
+                            var parsedContent = ParseStructuredContent(info.ContentType, rawWindowContent);
 
-                            // Merge parsed content with raw content
+                            // Merge parsed content into info.Content (structured data takes precedence)
                             foreach (var kvp in parsedContent) {
-                                info.Content[kvp.Key] = kvp.Value;
+                                if (!info.Content.ContainsKey(kvp.Key)) {
+                                    info.Content[kvp.Key] = kvp.Value;
+                                }
+                            }
+
+                            // Also merge raw text elements (Text1, Text2, etc.)
+                            foreach (var kvp in rawWindowContent) {
+                                if (!info.Content.ContainsKey(kvp.Key)) {
+                                    info.Content[kvp.Key] = kvp.Value;
+                                }
                             }
                         }
 
