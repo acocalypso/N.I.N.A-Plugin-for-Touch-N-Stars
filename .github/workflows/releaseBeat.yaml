@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release Beta
 on:
   workflow_dispatch:
     inputs:
@@ -6,7 +6,11 @@ on:
         description: 'Branch for Touch-N-Stars app'
         required: true
         default: 'main'
-        type: string
+        type: choice
+        options:
+          - main
+          - develop
+          - feature/new-feature
 permissions:
   contents: write
 env:
