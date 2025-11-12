@@ -24,7 +24,7 @@ jobs:
 
       - name: Pull and build external repository
         run: |
-          git clone https://github.com/JohannesWorks/Touch-N-Stars.git external_repo
+          git clone https://github.com/Touch-N-Stars/Touch-N-Stars.git external_repo
           cd external_repo
           npm install
           npm run build

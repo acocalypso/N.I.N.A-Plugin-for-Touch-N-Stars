@@ -99,8 +99,5 @@ orleans.codegen.cs
 /NINA/Resources/StaticResources/ArrowLeft.xaml
 Accord.dll.config
 *.zip
-<<<<<<< HEAD
-.claude/
-=======
-.claude/
->>>>>>> 22292ac879e635590cdbf0e9e38fe86dabeef35c
+.vscode/tasks.json
+Touch-N-Stars/.vscode/tasks.json
