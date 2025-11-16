@@ -7,8 +7,10 @@ using NINA.Plugin.Interfaces;
 using NINA.Profile.Interfaces;
 using NINA.WPF.Base.Interfaces.ViewModel;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.Composition;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Text;
@@ -16,7 +18,6 @@ using TouchNStars.Utility;
 using TouchNStars.Server;
 using TouchNStars.Server.Controllers;
 using Settings = TouchNStars.Properties.Settings;
-using System.Collections.Generic;
 using System.Windows;
 
 namespace TouchNStars {
@@ -257,7 +258,7 @@ namespace TouchNStars {
 
             try {
                 mdnsBroadcaster ??= new MdnsBroadcaster(MdnsServiceType);
-                mdnsBroadcaster.StartOrUpdate(MdnsServiceInstance, CachedPort);
+                mdnsBroadcaster.StartOrUpdate(MdnsServiceInstance, CachedPort, ResolveMdnsAddress());
             } catch (Exception ex) {
                 Logger.Error($"Failed to advertise Touch 'N' Stars via mDNS: {ex}");
             }
@@ -305,6 +306,23 @@ namespace TouchNStars {
 
             string sanitized = builder.ToString().Trim('-');
             return string.IsNullOrEmpty(sanitized) ? "default" : sanitized;
+        }
+
+        private IPAddress ResolveMdnsAddress() {
+            try {
+                Dictionary<string, string> names = CoreUtility.GetLocalNames();
+                if (names.TryGetValue("IPADRESS", out string ipString) && IPAddress.TryParse(ipString, out IPAddress ip)) {
+                    return ip;
+                }
+            } catch (Exception ex) {
+                Logger.Debug($"Failed to resolve advertised IPv4 address from CoreUtility: {ex.Message}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(LocalNetworkAdress) && Uri.TryCreate(LocalNetworkAdress, UriKind.Absolute, out Uri uri) && IPAddress.TryParse(uri.Host, out IPAddress parsed)) {
+                return parsed;
+            }
+
+            return null;
         }
 
         private void SetHostNames() {
