@@ -1,9 +1,11 @@
-
 using NINA.Core.Utility;
 using System;
 using System.IO;
 using System.Linq;
+using TouchNStars.Server.Infrastructure;
 using TouchNStars.Utility;
+
+namespace TouchNStars.Server.Services;
 
 internal static class BackgroundWorker {
     private static int lastLine = 0;
@@ -40,7 +42,9 @@ internal static class BackgroundWorker {
                     if (parts.Length >= 6) {
                         DataContainer.afErrorText = parts[5].Trim();
                     }
-                } 
+                } else if (line.Contains("|INFO|") && line.Contains("Starting AutoFocus")) {
+                    DataContainer.afRun = true;
+                }
             }
         } catch (Exception ex) {
             Logger.Error($"Error processing log file: {ex.Message}");

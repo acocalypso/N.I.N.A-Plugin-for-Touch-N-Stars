@@ -1,47 +1,44 @@
 name: Build and Release
-
 on:
   workflow_dispatch:
-
+    inputs:
+      app_branch:
+        description: 'Branch for Touch-N-Stars app (z.B. main, develop, feature/xyz)'
+        required: true
+        default: 'main'
+        type: string
 permissions:
   contents: write
-
 env:
   PLUGIN_NAME: "Touch-N-Stars"
   PLUGIN_DLL_NAME: "TouchNStars"
-
 jobs:
   build-and-release:
     runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Prepare folders
         run: |
           mkdir packages
           mkdir packages/${{ env.PLUGIN_NAME }}
-
       - name: Pull and build external repository
         run: |
-          git clone https://github.com/Touch-N-Stars/Touch-N-Stars.git external_repo
+          git clone --branch ${{ inputs.app_branch }} https://github.com/JohannesWorks/Touch-N-Stars.git external_repo
           cd external_repo
           npm install
           npm run build
           cd ..
           mv external_repo/dist app
-
       - name: Get Assembly Version
         id: get_version
         run: |
           $version = (Select-String -Path "Touch-N-Stars/Properties/AssemblyInfo.cs" -Pattern 'AssemblyVersion\("([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)"\)').Matches.Groups[1].Value
           echo "version=$version" >> $env:GITHUB_OUTPUT
-
       - name: Build .NET Assemblies
         run: |
           dotnet restore
           dotnet build ${{ env.PLUGIN_NAME }}.sln -c Release -p:PostBuildEvent= -p:Version=${{ steps.get_version.outputs.version }}
-
       - name: Prepare package
         run: |
           Copy-Item "Touch-N-Stars/bin/Release/net8.0-windows/${{ env.PLUGIN_DLL_NAME }}.dll" "packages/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_DLL_NAME }}.dll" -Force

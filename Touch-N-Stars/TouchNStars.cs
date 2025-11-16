@@ -6,15 +6,17 @@ using NINA.Plugin;
 using NINA.Plugin.Interfaces;
 using NINA.Profile.Interfaces;
 using NINA.WPF.Base.Interfaces.ViewModel;
+using System;
 using System.ComponentModel;
 using System.ComponentModel.Composition;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using TouchNStars.Utility;
 using TouchNStars.Server;
+using TouchNStars.Server.Controllers;
 using Settings = TouchNStars.Properties.Settings;
 using System.Collections.Generic;
-using System;
+using System.Windows;
 
 namespace TouchNStars {
 
@@ -43,6 +45,8 @@ namespace TouchNStars {
 
         internal static Communicator Communicator { get; private set; }
 
+        private static TouchNStars instance;
+
 
         [ImportingConstructor]
         public TouchNStars(IProfileService profileService,
@@ -57,6 +61,8 @@ namespace TouchNStars {
                 CoreUtil.SaveSettings(Settings.Default);
             }
 
+            instance = this;
+
             PluginId = this.Identifier;
             Mediators = new Mediators(DeepSkyObjectSearchVM,
                             imageDataFactory,
@@ -65,19 +71,73 @@ namespace TouchNStars {
                             guider,
                             broker);
 
+            UpdateDefaultPortCommand = new CommunityToolkit.Mvvm.Input.RelayCommand(() => {
+                Port = CachedPort;
+                CachedPort = Port; // This may look useless, but that way the visibility only changes when cachedPort changes and not when the user enters a new port
+            });
+
             Communicator = new Communicator();
 
             SetHostNames();
 
             if (AppEnabled) {
-                server = new TouchNStarsServer();
+                CachedPort = CoreUtility.GetNearestAvailablePort(Port);
+                server = new TouchNStarsServer(CachedPort);
                 server.Start();
+                ShowNotificationIfPortChanged();
+            }
+
+            // Handle ToastNotifications culture issues on German systems  
+            try {
+                var enCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+                System.Globalization.CultureInfo.CurrentUICulture = enCulture;
+                System.Threading.Thread.CurrentThread.CurrentUICulture = enCulture;
+                System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = enCulture;
+            } catch (Exception ex) {
+                Logger.Debug($"Could not set UI culture to en-US: {ex.Message}");
             }
         }
+
+        public CommunityToolkit.Mvvm.Input.RelayCommand UpdateDefaultPortCommand { get; set; }
+
+        private int cachedPort = -1;
+        public int CachedPort {
+            get => cachedPort;
+            set {
+                cachedPort = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CachedPort)));
+                PortVisibility = ((CachedPort != Port) && AppEnabled) ? Visibility.Visible : Visibility.Hidden;
+                SetHostNames();
+            }
+        }
+
+        private Visibility portVisibility = Visibility.Hidden;
+        public Visibility PortVisibility {
+            get => portVisibility;
+            set {
+                portVisibility = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PortVisibility)));
+            }
+        }
+        public static int GetCachedPort() {
+            return instance.CachedPort;
+        }
+
+        private void ShowNotificationIfPortChanged() {
+            if (CachedPort != Port) {
+                try {
+                    Notification.ShowInformation("Touch 'N' Stars launched on a different port: " + CachedPort);
+                } catch (Exception ex) {
+                    Logger.Warning($"Failed to show port notification: {ex.Message}");
+                }
+            }
+        }
+
 
         public override Task Teardown() {
             server.Stop();
             Communicator.Dispose();
+            Server.Controllers.PHD2Controller.CleanupPHD2Service();
             return base.Teardown();
         }
 
@@ -100,13 +160,25 @@ namespace TouchNStars {
                 RaisePropertyChanged();
 
                 if (value) {
-                    server = new TouchNStarsServer();
+                    CachedPort = CoreUtility.GetNearestAvailablePort(Port);
+                    server = new TouchNStarsServer(CachedPort);
                     server.Start();
                     SetHostNames();
-                    Notification.ShowSuccess("Touch 'N' Stars started!");
+                    try {
+                        Notification.ShowSuccess("Touch 'N' Stars started!");
+                    } catch (Exception ex) {
+                        Logger.Warning($"Failed to show startup notification: {ex.Message}");
+                    }
+                    ShowNotificationIfPortChanged();
                 } else {
                     server.Stop();
-                    Notification.ShowSuccess("Touch 'N' Stars stopped!");
+                    try {
+                        Notification.ShowSuccess("Touch 'N' Stars stopped!");
+                    } catch (Exception ex) {
+                        Logger.Warning($"Failed to show shutdown notification: {ex.Message}");
+                    }
+                    server = null;
+                    CachedPort = -1;
                 }
             }
         }
