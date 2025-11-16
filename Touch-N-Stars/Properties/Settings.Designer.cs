@@ -106,5 +106,17 @@ namespace TouchNStars.Properties {
                 this["UseAccessHeader"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string InstanceName {
+            get {
+                return ((string)(this["InstanceName"]));
+            }
+            set {
+                this["InstanceName"] = value;
+            }
+        }
     }
 }
