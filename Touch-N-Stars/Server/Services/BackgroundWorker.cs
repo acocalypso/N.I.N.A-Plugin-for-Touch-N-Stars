@@ -1,9 +1,11 @@
-
 using NINA.Core.Utility;
 using System;
 using System.IO;
 using System.Linq;
+using TouchNStars.Server.Infrastructure;
 using TouchNStars.Utility;
+
+namespace TouchNStars.Server.Services;
 
 internal static class BackgroundWorker {
     private static int lastLine = 0;

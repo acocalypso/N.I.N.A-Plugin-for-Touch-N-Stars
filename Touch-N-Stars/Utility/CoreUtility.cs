@@ -2,9 +2,10 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Net;
+using System.Linq;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using System.Net.NetworkInformation;
 using NINA.Core.Utility;
 
 namespace TouchNStars.Utility;
@@ -48,9 +49,7 @@ public static class CoreUtility {
         return content;
     }
 
-    public static Dictionary<string, string> GetLocalNames() {
-        return lazyNames.Value;
-    }
+    public static Dictionary<string, string> GetLocalNames() => BuildLocalNames();
 
     public static bool IsPortAvailable(int port) {
         bool isPortAvailable = true;
@@ -77,36 +76,140 @@ public static class CoreUtility {
         return port;
     }
 
-    private static readonly Lazy<Dictionary<string, string>> lazyNames = new Lazy<Dictionary<string, string>>(() => {
-        var names = new Dictionary<string, string>()
-        {
-                { "LOCALHOST", "localhost" }
-            };
+    public static string GetIPv4Address() {
+        IPAddress preferred = GetPreferredIPv4Address();
+        if (preferred != null) {
+            return preferred.ToString();
+        }
+
+        return GetFallbackIpv4Address();
+    }
+
+    private static Dictionary<string, string> BuildLocalNames() {
+        var names = new Dictionary<string, string> {
+            { "LOCALHOST", "localhost" }
+        };
 
         string hostName = Dns.GetHostName();
         if (!string.IsNullOrEmpty(hostName)) {
-            names.Add("HOSTNAME", hostName);
+            names["HOSTNAME"] = hostName;
         }
 
         string ipv4 = GetIPv4Address();
         if (!string.IsNullOrEmpty(ipv4)) {
-            names.Add("IPADRESS", ipv4);
+            names["IPADRESS"] = ipv4;
         }
 
         return names;
-    });
+    }
 
-    public static string GetIPv4Address() {
-        string localIP;
+    private static IPAddress GetPreferredIPv4Address() {
+        try {
+            var candidates = new List<(IPAddress Address, int Score, int Order)>();
+
+            foreach (NetworkInterface networkInterface in NetworkInterface.GetAllNetworkInterfaces()) {
+                if (networkInterface == null) {
+                    continue;
+                }
+
+                if (networkInterface.OperationalStatus != OperationalStatus.Up) {
+                    continue;
+                }
+
+                if (networkInterface.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel) {
+                    continue;
+                }
+
+                IPInterfaceProperties properties = networkInterface.GetIPProperties();
+                bool hasGateway = properties.GatewayAddresses.Any(g => g?.Address != null && !g.Address.Equals(IPAddress.Any) && !g.Address.Equals(IPAddress.IPv6Any));
+
+                foreach (UnicastIPAddressInformation unicast in properties.UnicastAddresses) {
+                    if (unicast?.Address == null) {
+                        continue;
+                    }
+
+                    if (unicast.Address.AddressFamily != AddressFamily.InterNetwork) {
+                        continue;
+                    }
+
+                    if (IPAddress.IsLoopback(unicast.Address)) {
+                        continue;
+                    }
+
+                    if (IsAutomaticPrivateAddress(unicast.Address)) {
+                        continue;
+                    }
+
+                    int score = CalculateAddressScore(unicast.Address, hasGateway, networkInterface.Speed);
+                    int order = GetAddressTieBreaker(unicast.Address);
+                    candidates.Add((unicast.Address, score, order));
+                }
+            }
+
+            if (candidates.Count == 0) {
+                return null;
+            }
+
+            var best = candidates
+                .OrderByDescending(candidate => candidate.Score)
+                .ThenBy(candidate => candidate.Order)
+                .First();
+
+            return best.Address;
+        } catch (Exception ex) {
+            Logger.Warning($"Failed to resolve preferred IPv4 address: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static int CalculateAddressScore(IPAddress address, bool hasGateway, long linkSpeed) {
+        byte[] octets = address.GetAddressBytes();
+
+        int score = octets[0] switch {
+            192 when octets[1] == 168 => 80,
+            10 => 70,
+            172 when octets[1] is >= 16 and <= 31 => 60,
+            _ => 40
+        };
+
+        if (hasGateway) {
+            score += 10;
+        }
+
+        if (linkSpeed > 0) {
+            if (linkSpeed >= 1_000_000_000) {
+                score += 5;
+            } else if (linkSpeed >= 100_000_000) {
+                score += 3;
+            } else {
+                score += 1;
+            }
+        }
+
+        return score;
+    }
+
+    private static int GetAddressTieBreaker(IPAddress address) {
+        byte[] octets = address.GetAddressBytes();
+        return (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
+    }
+
+    private static bool IsAutomaticPrivateAddress(IPAddress address) {
+        byte[] octets = address.GetAddressBytes();
+        return octets[0] == 169 && octets[1] == 254;
+    }
+
+    private static string GetFallbackIpv4Address() {
         try {
             using Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0);
             socket.Connect("8.8.8.8", 65530);
-            IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
-            localIP = endPoint.Address.ToString();
-        } catch (Exception) {
-            localIP = "127.0.0.1";
+            if (socket.LocalEndPoint is IPEndPoint endPoint) {
+                return endPoint.Address.ToString();
+            }
+        } catch (Exception ex) {
+            Logger.Debug($"IPv4 fallback resolution failed: {ex.Message}");
         }
 
-        return localIP;
+        return "127.0.0.1";
     }
 }

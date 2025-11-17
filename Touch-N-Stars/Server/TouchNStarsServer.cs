@@ -11,6 +11,8 @@ using System.Threading;
 using TouchNStars.Properties;
 using System.Threading.Tasks;
 using System.Text;
+using TouchNStars.Server.Controllers;
+using TouchNStars.Server.Services;
 
 namespace TouchNStars.Server {
     public class TouchNStarsServer {
@@ -35,7 +37,18 @@ namespace TouchNStars.Server {
             foreach (string endPoint in appEndPoints) {
                 WebServer = WebServer.WithModule(new RedirectModule("/" + endPoint, "/")); // redirect all reloads of the app to the root
             }
-            WebServer = WebServer.WithWebApi("/api", m => m.WithController<Controller>()); // Register the controller, which will be used to handle all the api requests which were previously in server.py
+            WebServer = WebServer.WithWebApi("/api", m => m
+                .WithController<AutofocusController>()   // Autofocus control
+                .WithController<DialogController>()      // Dialog endpoints
+                .WithController<PHD2Controller>()        // PHD2 guiding endpoints
+                .WithController<TelescopiusController>() // Telescopius PIAAPI proxy
+                .WithController<MessageBoxController>()  // TNS MessageBox management
+                .WithController<SystemController>()      // System control (shutdown/restart)
+                .WithController<SettingsController>()    // Settings management
+                .WithController<FavoritesController>()   // Favorites management
+                .WithController<TargetSearchController>() // NGC search and target pictures
+                .WithController<FramingController>()     // Framing Assistant control
+                .WithController<UtilityController>());   // Logs, version, api-port
             WebServer = WebServer.WithStaticFolder("/", webAppDir, false); // Register the static folder, which will be used to serve the web app
         }
 

@@ -7,14 +7,17 @@ using NINA.Plugin.Interfaces;
 using NINA.Profile.Interfaces;
 using NINA.WPF.Base.Interfaces.ViewModel;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.Composition;
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Text;
 using TouchNStars.Utility;
 using TouchNStars.Server;
+using TouchNStars.Server.Controllers;
 using Settings = TouchNStars.Properties.Settings;
-using System.Collections.Generic;
 using System.Windows;
 
 namespace TouchNStars {
@@ -37,7 +40,11 @@ namespace TouchNStars {
 
     [Export(typeof(IPluginManifest))]
     public class TouchNStars : PluginBase, INotifyPropertyChanged {
+        private const string MdnsServiceType = "_touchnstars._tcp.";
+        private const string MdnsInstancePrefix = "touchnstars_";
+
         private TouchNStarsServer server;
+        private MdnsBroadcaster mdnsBroadcaster;
 
         public static Mediators Mediators { get; private set; }
         public static string PluginId { get; private set; }
@@ -84,6 +91,7 @@ namespace TouchNStars {
                 server = new TouchNStarsServer(CachedPort);
                 server.Start();
                 ShowNotificationIfPortChanged();
+                RefreshMdnsAdvertisement();
             }
 
             // Handle ToastNotifications culture issues on German systems  
@@ -107,6 +115,8 @@ namespace TouchNStars {
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CachedPort)));
                 PortVisibility = ((CachedPort != Port) && AppEnabled) ? Visibility.Visible : Visibility.Hidden;
                 SetHostNames();
+                RaisePropertyChanged(nameof(MdnsServiceInstance));
+                RefreshMdnsAdvertisement();
             }
         }
 
@@ -134,9 +144,12 @@ namespace TouchNStars {
 
 
         public override Task Teardown() {
-            server.Stop();
+            server?.Stop();
+            StopMdnsAdvertisement();
+            mdnsBroadcaster?.Dispose();
+            mdnsBroadcaster = null;
             Communicator.Dispose();
-            Server.Controller.CleanupPHD2Service();
+            Server.Controllers.PHD2Controller.CleanupPHD2Service();
             return base.Teardown();
         }
 
@@ -163,6 +176,7 @@ namespace TouchNStars {
                     server = new TouchNStarsServer(CachedPort);
                     server.Start();
                     SetHostNames();
+                    RefreshMdnsAdvertisement();
                     try {
                         Notification.ShowSuccess("Touch 'N' Stars started!");
                     } catch (Exception ex) {
@@ -170,7 +184,8 @@ namespace TouchNStars {
                     }
                     ShowNotificationIfPortChanged();
                 } else {
-                    server.Stop();
+                    server?.Stop();
+                    StopMdnsAdvertisement();
                     try {
                         Notification.ShowSuccess("Touch 'N' Stars stopped!");
                     } catch (Exception ex) {
@@ -192,6 +207,21 @@ namespace TouchNStars {
                 RaisePropertyChanged();
             }
         }
+
+        public string InstanceName {
+            get {
+                return Settings.Default.InstanceName;
+            }
+            set {
+                Settings.Default.InstanceName = value;
+                CoreUtil.SaveSettings(Settings.Default);
+                RaisePropertyChanged();
+                RaisePropertyChanged(nameof(MdnsServiceInstance));
+                RefreshMdnsAdvertisement();
+            }
+        }
+
+        public string MdnsServiceInstance => BuildMdnsInstanceName();
 
         public string LocalAdress {
             get => Settings.Default.LocalAdress;
@@ -218,6 +248,102 @@ namespace TouchNStars {
                 NINA.Core.Utility.CoreUtil.SaveSettings(Settings.Default);
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HostAdress)));
             }
+        }
+
+        private void RefreshMdnsAdvertisement() {
+            if (!AppEnabled || server == null || CachedPort <= 0) {
+                StopMdnsAdvertisement();
+                return;
+            }
+
+            try {
+                mdnsBroadcaster ??= new MdnsBroadcaster(MdnsServiceType);
+                mdnsBroadcaster.StartOrUpdate(MdnsServiceInstance, CachedPort, ResolveMdnsAddress());
+            } catch (Exception ex) {
+                Logger.Error($"Failed to advertise Touch 'N' Stars via mDNS: {ex}");
+            }
+        }
+
+        private void StopMdnsAdvertisement() {
+            try {
+                mdnsBroadcaster?.Stop();
+            } catch (Exception ex) {
+                Logger.Warning($"Failed to stop mDNS advertisement: {ex.Message}");
+            }
+        }
+
+        private string BuildMdnsInstanceName() {
+            string suffix = SanitizeInstanceSuffix(GetInstanceNameOrDefault());
+
+            if (!HasCustomInstanceName()) {
+                int offset = GetPortOffset();
+                if (offset > 0) {
+                    suffix = $"{suffix}_{offset}";
+                }
+            }
+
+            return $"{MdnsInstancePrefix}{suffix}";
+        }
+
+        private string GetInstanceNameOrDefault() {
+            string candidate = (InstanceName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(candidate)) {
+                candidate = Environment.MachineName ?? "default";
+            }
+
+            if (candidate.StartsWith(MdnsInstancePrefix, StringComparison.OrdinalIgnoreCase)) {
+                candidate = candidate.Substring(MdnsInstancePrefix.Length);
+            }
+
+            return candidate;
+        }
+
+        private static string SanitizeInstanceSuffix(string value) {
+            if (string.IsNullOrWhiteSpace(value)) {
+                return "default";
+            }
+
+            var builder = new StringBuilder(value.Length);
+            foreach (char character in value) {
+                if (character <= 0x7F && (char.IsLetterOrDigit(character) || character == '-' || character == '_')) {
+                    builder.Append(character);
+                } else if (char.IsWhiteSpace(character) || character == '.' || character == ':' || character == ',') {
+                    builder.Append('-');
+                }
+            }
+
+            string sanitized = builder.ToString().Trim('-');
+            return string.IsNullOrEmpty(sanitized) ? "default" : sanitized;
+        }
+
+        private IPAddress ResolveMdnsAddress() {
+            try {
+                Dictionary<string, string> names = CoreUtility.GetLocalNames();
+                if (names.TryGetValue("IPADRESS", out string ipString) && IPAddress.TryParse(ipString, out IPAddress ip)) {
+                    return ip;
+                }
+            } catch (Exception ex) {
+                Logger.Debug($"Failed to resolve advertised IPv4 address from CoreUtility: {ex.Message}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(LocalNetworkAdress) && Uri.TryCreate(LocalNetworkAdress, UriKind.Absolute, out Uri uri) && IPAddress.TryParse(uri.Host, out IPAddress parsed)) {
+                return parsed;
+            }
+
+            return null;
+        }
+
+        private bool HasCustomInstanceName() {
+            return !string.IsNullOrWhiteSpace(Settings.Default.InstanceName);
+        }
+
+        private int GetPortOffset() {
+            if (Port <= 0 || CachedPort <= 0) {
+                return 0;
+            }
+
+            int offset = CachedPort - Port;
+            return offset > 0 ? offset : 0;
         }
 
         private void SetHostNames() {
