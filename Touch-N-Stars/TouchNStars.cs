@@ -274,6 +274,14 @@ namespace TouchNStars {
 
         private string BuildMdnsInstanceName() {
             string suffix = SanitizeInstanceSuffix(GetInstanceNameOrDefault());
+
+            if (!HasCustomInstanceName()) {
+                int offset = GetPortOffset();
+                if (offset > 0) {
+                    suffix = $"{suffix}_{offset}";
+                }
+            }
+
             return $"{MdnsInstancePrefix}{suffix}";
         }
 
@@ -323,6 +331,19 @@ namespace TouchNStars {
             }
 
             return null;
+        }
+
+        private bool HasCustomInstanceName() {
+            return !string.IsNullOrWhiteSpace(Settings.Default.InstanceName);
+        }
+
+        private int GetPortOffset() {
+            if (Port <= 0 || CachedPort <= 0) {
+                return 0;
+            }
+
+            int offset = CachedPort - Port;
+            return offset > 0 ? offset : 0;
         }
 
         private void SetHostNames() {

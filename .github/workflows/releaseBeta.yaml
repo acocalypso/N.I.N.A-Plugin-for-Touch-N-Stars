@@ -1,4 +1,4 @@
-name: Build and Release
+name: Beta Build and Release
 on:
   workflow_dispatch:
     inputs:
