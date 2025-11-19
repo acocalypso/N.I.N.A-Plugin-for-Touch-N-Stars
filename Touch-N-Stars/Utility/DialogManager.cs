@@ -50,7 +50,8 @@ namespace TouchNStars.Utility {
                         // Skip toast notifications (they're not real dialogs)
                         var windowTypeName = window.GetType().FullName ?? "";
                         if (windowTypeName.Contains("ToastNotifications") ||
-                            windowTypeName.Contains("NotificationsWindow")) {
+                            windowTypeName.Contains("NotificationsWindow") ||
+                            windowTypeName.Contains("AvalonDock")) {
                             continue;
                         }
 
