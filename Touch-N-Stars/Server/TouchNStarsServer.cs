@@ -48,6 +48,7 @@ namespace TouchNStars.Server {
                 .WithController<FavoritesController>()   // Favorites management
                 .WithController<TargetSearchController>() // NGC search and target pictures
                 .WithController<FramingController>()     // Framing Assistant control
+                .WithController<MetricsController>()     // System metrics
                 .WithController<UtilityController>()    // Logs, version, api-port
                 .WithController<BahtinovController>());  // Bahtinov mask analysis
             WebServer = WebServer.WithStaticFolder("/", webAppDir, false); // Register the static folder, which will be used to serve the web app
