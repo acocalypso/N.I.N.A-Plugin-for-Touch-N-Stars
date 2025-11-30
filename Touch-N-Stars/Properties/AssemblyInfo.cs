@@ -84,6 +84,8 @@ My thanks go to the entire **NINA** development team, whose great work makes thi
 A special thank you to **Christian**, the developer of the **Advanced API**, for his efforts and support. 
 His work has significantly enabled the development of this web app.
 
+Thanks to https://github.com/CanardConfit/BahtiFocus for the Bahtinov mask analysis code.
+
 ")]
 
 // Setting ComVisible to false makes the types in this assembly not visible
