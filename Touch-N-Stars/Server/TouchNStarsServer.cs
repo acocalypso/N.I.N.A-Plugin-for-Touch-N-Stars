@@ -56,7 +56,9 @@ namespace TouchNStars.Server {
                 .WithController<BahtinovController>()    // Bahtinov mask analysis
                 .WithController<INDIController>()        // INDI driver management
                 .WithController<ProxyController>()       // Generic proxy for external URLs
-                .WithController<FilesystemController>());
+                .WithController<FilesystemController>()
+                .WithController<FitsAnalysisController>()
+                .WithController<StellariumLandscapeController>());
             WebServer = WebServer.WithStaticFolder("/", webAppDir, false); // Register the static folder, which will be used to serve the web app
         }
 
